@@ -33,6 +33,18 @@
             </div>
             
             <div class="form-group">
+                <label for="date_format">Date Format:</label>
+                <select name="date_format" id="date_format">
+                    <option value="auto" {% if detected_format == 'auto' %}selected{% endif %}>Auto-detect</option>
+                    <option value="%m/%d/%Y" {% if detected_format == '%m/%d/%Y' %}selected{% endif %}>American (MM/DD/YYYY)</option>
+                    <option value="%d/%m/%Y" {% if detected_format == '%d/%m/%Y' %}selected{% endif %}>European (DD/MM/YYYY)</option>
+                </select>
+                <div class="format-hint">
+                    <small>Change only if dates are not correctly recognized</small>
+                </div>
+            </div>
+            
+            <div class="form-group">
                 <label>Select Metrics to Forecast:</label>
                 <div class="checkbox-group">
                     {% for col in numeric_cols %}

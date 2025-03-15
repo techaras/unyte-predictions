@@ -25,6 +25,39 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
+def parse_dates_with_format_detection(df, date_col):
+    """Try to detect date format and parse dates accordingly.
+    
+    Args:
+        df: DataFrame containing date column
+        date_col: Name of the column containing dates
+        
+    Returns:
+        tuple: (parsed_dates, detected_format)
+    """
+    # First try automatic parsing
+    dates_auto = pd.to_datetime(df[date_col], errors='coerce')
+    
+    # Try explicit formats
+    dates_mdy = pd.to_datetime(df[date_col], format='%m/%d/%Y', errors='coerce')
+    dates_dmy = pd.to_datetime(df[date_col], format='%d/%m/%Y', errors='coerce')
+    
+    # Count valid dates for each method
+    valid_auto = (~dates_auto.isna()).sum()
+    valid_mdy = (~dates_mdy.isna()).sum()
+    valid_dmy = (~dates_dmy.isna()).sum()
+    
+    # Choose the format that successfully parsed the most dates
+    if valid_mdy >= valid_auto and valid_mdy >= valid_dmy:
+        logger.info(f"Detected American date format (MM/DD/YYYY) for column {date_col}")
+        return dates_mdy, '%m/%d/%Y'
+    elif valid_dmy >= valid_auto:
+        logger.info(f"Detected European date format (DD/MM/YYYY) for column {date_col}")
+        return dates_dmy, '%d/%m/%Y'
+    else:
+        logger.info(f"Using auto-detected date format for column {date_col}")
+        return dates_auto, 'auto'
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -57,17 +90,50 @@ def upload_file():
             logger.info(f"Successfully read CSV with skiprows=2. Columns: {df.columns.tolist()}")
             
             # Make sure 'Day' is properly formatted as a date column
+            detected_date_format = 'auto'
             if 'Day' in df.columns:
-                df['Day'] = pd.to_datetime(df['Day'], errors='coerce')
+                df['Day'], detected_date_format = parse_dates_with_format_detection(df, 'Day')
                 if not df['Day'].isna().all():
                     date_cols = ['Day']
-                    logger.info("Successfully formatted 'Day' as a date column")
+                    logger.info(f"Successfully formatted 'Day' as a date column using format: {detected_date_format}")
                 else:
                     logger.warning("Failed to convert 'Day' to date format")
                     date_cols = []
             else:
+                # Look for other potential date columns
                 date_cols = []
-                logger.warning("'Day' column not found in CSV")
+                logger.warning("'Day' column not found in CSV, looking for other date columns")
+                
+                # Check if there are any columns containing 'date' or 'day' in the name
+                date_candidates = [col for col in df.columns if 'date' in col.lower() or 'day' in col.lower()]
+                
+                if date_candidates:
+                    for col in date_candidates:
+                        parsed_dates, format_detected = parse_dates_with_format_detection(df, col)
+                        if not parsed_dates.isna().all():
+                            df[col] = parsed_dates
+                            date_cols.append(col)
+                            detected_date_format = format_detected
+                            logger.info(f"Found date column: {col} with format {format_detected}")
+                            break
+                
+                if not date_cols:
+                    # If no obvious date columns found, try all string columns
+                    for col in df.columns:
+                        if df[col].dtype == 'object':
+                            # Check if column might contain dates (simple check for / or -)
+                            sample_val = str(df[col].iloc[0]) if not df[col].empty else ""
+                            if '/' in sample_val or '-' in sample_val:
+                                parsed_dates, format_detected = parse_dates_with_format_detection(df, col)
+                                if not parsed_dates.isna().all():
+                                    df[col] = parsed_dates
+                                    date_cols.append(col)
+                                    detected_date_format = format_detected
+                                    logger.info(f"Found date column: {col} with format {format_detected}")
+                                    break
+            
+            # Store detected format in session
+            session['detected_date_format'] = detected_date_format
             
             # Handle numeric columns with commas in the values (e.g., "1,476.69")
             for col in df.columns:
@@ -102,7 +168,8 @@ def upload_file():
             session['uploaded_file'] = unique_filename
             return render_template('select_columns.html', 
                                    date_cols=date_cols, 
-                                   numeric_cols=numeric_cols)
+                                   numeric_cols=numeric_cols,
+                                   detected_format=detected_date_format)
                 
         except Exception as e:
             error_message = f'Error processing file: {str(e)}'
@@ -122,6 +189,7 @@ def process():
     date_col = request.form.get('date_col')
     selected_metrics = request.form.getlist('metrics')
     forecast_period = int(request.form.get('forecast_period', 30))
+    date_format = request.form.get('date_format', session.get('detected_date_format', 'auto'))
     
     # Get the uploaded file path from session
     if 'uploaded_file' not in session:
@@ -138,8 +206,13 @@ def process():
         # Read the CSV file with specific handling for Google Ads format
         df = pd.read_csv(file_path, skiprows=2)
         
-        # Convert date column to datetime
-        df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+        # Convert date column to datetime using the selected format
+        if date_format == 'auto':
+            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+            logger.info(f"Using automatic date parsing for column {date_col}")
+        else:
+            df[date_col] = pd.to_datetime(df[date_col], format=date_format, errors='coerce')
+            logger.info(f"Using format {date_format} for column {date_col}")
         
         # Clean numeric data - remove commas from numbers
         for col in selected_metrics:
@@ -153,6 +226,7 @@ def process():
         # Clean up the file
         os.remove(file_path)
         session.pop('uploaded_file', None)
+        session.pop('detected_date_format', None)
         
         return render_template('results.html', results=results)
     
@@ -164,6 +238,7 @@ def process():
         if os.path.exists(file_path):
             os.remove(file_path)
         session.pop('uploaded_file', None)
+        session.pop('detected_date_format', None)
         return redirect(url_for('index'))
 
 def generate_forecast(df, date_col, metrics, forecast_period):
