@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forecast Results - Unyte Predictions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container results-container">
+        <h1>Forecast Results</h1>
+        
+        <a href="{{ url_for('index') }}" class="btn back-btn">Back to Upload</a>
+        
+        {% if results %}
+            {% for metric, result in results.items() %}
+                <div class="result-card">
+                    <h2>{{ metric }}</h2>
+                    
+                    <div class="forecast-plots">
+                        <div class="plot">
+                            <h3>Forecast</h3>
+                            <iframe src="{{ url_for('static', filename=result.plot_path) }}" 
+                                    frameborder="0" width="100%" height="500px"></iframe>
+                        </div>
+                        
+                        {% if result.components_path %}
+                        <div class="plot">
+                            <h3>Components</h3>
+                            <iframe src="{{ url_for('static', filename=result.components_path) }}" 
+                                    frameborder="0" width="100%" height="500px"></iframe>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="forecast-table">
+                        <h3>Forecast Values</h3>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Predicted Value</th>
+                                        <th>Lower Bound</th>
+                                        <th>Upper Bound</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in result.forecast %}
+                                        <tr>
+                                            <td>{{ row.ds.strftime('%Y-%m-%d') }}</td>
+                                            <td>{{ row.yhat|round(2) }}</td>
+                                            <td>{{ row.yhat_lower|round(2) }}</td>
+                                            <td>{{ row.yhat_upper|round(2) }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-results">
+                <p>No forecasts could be generated. Please check your CSV file format.</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

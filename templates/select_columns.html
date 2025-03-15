@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Columns - Unyte Predictions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Select Columns for Forecasting</h1>
+        
+        <a href="{{ url_for('index') }}" class="btn back-btn">Back to Upload</a>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alerts">
+                    {% for message in messages %}
+                        <div class="alert">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <form action="{{ url_for('process') }}" method="post" class="column-select-form">
+            <div class="form-group">
+                <label for="date_col">Select Date Column:</label>
+                <select name="date_col" id="date_col" required>
+                    {% for col in date_cols %}
+                        <option value="{{ col }}">{{ col }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Select Metrics to Forecast:</label>
+                <div class="checkbox-group">
+                    {% for col in numeric_cols %}
+                        <div class="checkbox-item">
+                            <input type="checkbox" name="metrics" id="metric_{{ loop.index }}" value="{{ col }}" checked>
+                            <label for="metric_{{ loop.index }}">{{ col }}</label>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="select-actions">
+                    <button type="button" id="select-all" class="btn-small">Select All</button>
+                    <button type="button" id="select-none" class="btn-small">Select None</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="forecast_period">Forecast Period (days):</label>
+                <input type="number" name="forecast_period" id="forecast_period" value="30" min="1" max="365" required>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn">Generate Forecast</button>
+            </div>
+        </form>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
