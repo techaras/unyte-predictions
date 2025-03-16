@@ -10,7 +10,7 @@
     <div class="container results-container">
         <h1>Forecast Results</h1>
         
-        <a href="{{ url_for('index') }}" class="btn back-btn">Back to Upload</a>
+        <a href="{{ url_for('main.index') }}" class="btn back-btn">Back to Upload</a>
         
         {% if results %}
             {% for metric, result in results.items() %}
