@@ -39,15 +39,15 @@ def create_forecast_plots(prophet_df, forecast, metric):
     ))
     
     # Uncertainty interval
-    fig_forecast.add_trace(go.Scatter(
-        x=forecast['ds'].tolist() + forecast['ds'].tolist()[::-1],
-        y=forecast['yhat_upper'].tolist() + forecast['yhat_lower'].tolist()[::-1],
-        fill='toself',
-        fillcolor='rgba(0,176,246,0.2)',
-        line=dict(color='rgba(255,255,255,0)'),
-        hoverinfo="skip",
-        showlegend=False
-    ))
+    # fig_forecast.add_trace(go.Scatter(
+    #     x=forecast['ds'].tolist() + forecast['ds'].tolist()[::-1],
+    #     y=forecast['yhat_upper'].tolist() + forecast['yhat_lower'].tolist()[::-1],
+    #     fill='toself',
+    #     fillcolor='rgba(0,176,246,0.2)',
+    #     line=dict(color='rgba(255,255,255,0)'),
+    #     hoverinfo="skip",
+    #     showlegend=False
+    # ))
     
     fig_forecast.update_layout(
         title=f'{metric} Forecast',

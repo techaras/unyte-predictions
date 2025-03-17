@@ -41,8 +41,6 @@
                                     <tr>
                                         <th>Date</th>
                                         <th>Predicted Value</th>
-                                        <th>Lower Bound</th>
-                                        <th>Upper Bound</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -50,8 +48,6 @@
                                         <tr>
                                             <td>{{ row.ds.strftime('%Y-%m-%d') }}</td>
                                             <td>{{ row.yhat|round(2) }}</td>
-                                            <td>{{ row.yhat_lower|round(2) }}</td>
-                                            <td>{{ row.yhat_upper|round(2) }}</td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
