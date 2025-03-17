@@ -145,9 +145,34 @@ def process_uploaded_file(file_path):
             except Exception as e:
                 logger.warning(f"Could not convert column {col} to numeric: {e}")
     
-    # Get numeric columns
-    numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-    logger.info(f"Numeric columns: {numeric_cols}")
+    # Get all numeric columns
+    all_numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+    
+    # Define accepted marketing metrics keywords
+    marketing_metrics = [
+        'clicks', 'link clicks', 'total clicks',
+        'conversions', 'all conv', 'conv', 'website purchases',
+        'conversion rate', 'conv. rate', 'cr', 'cvr',
+        'impressions', 'impr', 'imps',
+        'cpc', 'cost per click', 'avg. cpc', 'average cpc',
+        'ctr', 'click through rate', 'click-through rate',
+        'cpm', 'cost per mille', 'cost per thousand',
+        'spend', 'cost', 'amount spent', 'value', 'conv. value'
+    ]
+    
+    # Filter numeric columns to only include marketing metrics
+    numeric_cols = []
+    for col in all_numeric_cols:
+        col_lower = col.lower()
+        if any(metric in col_lower for metric in marketing_metrics):
+            numeric_cols.append(col)
+    
+    # If no marketing metrics were found, fall back to all numeric columns
+    if not numeric_cols:
+        logger.warning("No standard marketing metrics found, using all numeric columns")
+        numeric_cols = all_numeric_cols
+    
+    logger.info(f"Marketing metric columns: {numeric_cols}")
     
     return df, date_cols, numeric_cols, detected_date_format, file_format
 
