@@ -54,9 +54,15 @@ def upload_file():
             session['uploaded_file'] = unique_filename
             session['file_format'] = file_format
             session['detected_date_format'] = detected_date_format
+            # Store the selected date column (first/only one in the list)
+            session['selected_date_col'] = date_cols[0]
             
+            logger.info(f"Automatically selected date column: {date_cols[0]}")
+            
+            # Pass the selected date column to the template
             return render_template('select_columns.html', 
-                                  date_cols=date_cols, 
+                                  date_cols=date_cols,  # Still pass this for backward compatibility
+                                  selected_date_col=date_cols[0],  # But explicitly pass the selected one
                                   numeric_cols=numeric_cols,
                                   detected_format=detected_date_format)
                 
@@ -74,11 +80,16 @@ def upload_file():
 
 @main.route('/process', methods=['POST'])
 def process():
-    # Get the selected columns and forecast period
-    date_col = request.form.get('date_col')
+    # Get the forecast period and selected metrics
     selected_metrics = request.form.getlist('metrics')
     forecast_period = int(request.form.get('forecast_period', 30))
     date_format = request.form.get('date_format', session.get('detected_date_format', 'auto'))
+    
+    # Use the date column that was automatically selected
+    date_col = session.get('selected_date_col')
+    if not date_col:
+        flash('No date column selected. Please try again.')
+        return redirect(url_for('main.index'))
     
     # Get the uploaded file path from session
     if 'uploaded_file' not in session:
@@ -106,6 +117,7 @@ def process():
         session.pop('uploaded_file', None)
         session.pop('detected_date_format', None)
         session.pop('file_format', None)
+        session.pop('selected_date_col', None)
         
         return render_template('results.html', results=results)
     
@@ -119,4 +131,5 @@ def process():
         session.pop('uploaded_file', None)
         session.pop('detected_date_format', None)
         session.pop('file_format', None)
+        session.pop('selected_date_col', None)
         return redirect(url_for('main.index'))

@@ -24,12 +24,15 @@
         
         <form action="{{ url_for('main.process') }}" method="post" class="column-select-form">
             <div class="form-group">
-                <label for="date_col">Select Date Column:</label>
-                <select name="date_col" id="date_col" required>
-                    {% for col in date_cols %}
-                        <option value="{{ col }}">{{ col }}</option>
-                    {% endfor %}
-                </select>
+                <label>Date Column (automatically selected):</label>
+                <div class="file-input-label" style="background-color: #f4f4f4; text-align: left; padding: 12px;">
+                    {{ selected_date_col }}
+                </div>
+                <div class="format-hint">
+                    <small>This date column was automatically selected for forecasting</small>
+                </div>
+                <!-- Hidden input to maintain compatibility -->
+                <input type="hidden" name="date_col" value="{{ selected_date_col }}">
             </div>
             
             <div class="form-group">

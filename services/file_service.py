@@ -91,48 +91,58 @@ def process_uploaded_file(file_path):
     detected_date_format = 'auto'
     date_cols = []
     
-    # Try suggested date columns from format detection first
+    # First, create a list of potential date columns in their original order
+    date_candidates = []
+    
+    # Add suggested date columns from format detection
     if file_format['date_columns']:
         for col in file_format['date_columns']:
-            if col in df.columns:
-                df[col], detected_date_format = parse_dates_with_format_detection(df, col)
-                if not df[col].isna().all():
-                    date_cols.append(col)
-                    logger.info(f"Formatted suggested date column '{col}' using format: {detected_date_format}")
+            if col in df.columns and col not in date_candidates:
+                date_candidates.append(col)
     
-    # If no date columns found yet, try common date column names
+    # Add columns with date-related terms in their names
+    for col in df.columns:
+        if col not in date_candidates:
+            col_lower = col.lower()
+            if any(term in col_lower for term in ['date', 'day', 'time', 'report', 'start', 
+                                                 'end', 'period', 'month', 'year']):
+                date_candidates.append(col)
+    
+    # Add all string columns that might contain dates
+    for col in df.columns:
+        if col not in date_candidates and df[col].dtype == 'object':
+            # Check if column might contain dates (simple check for / or - or .)
+            sample_vals = df[col].dropna().astype(str).head(3)
+            if any(('/' in str(val) or '-' in str(val) or '.' in str(val)) for val in sample_vals):
+                date_candidates.append(col)
+    
+    # Now check each candidate in order and use the first valid date column
+    for col in date_candidates:
+        try:
+            parsed_dates, format_detected = parse_dates_with_format_detection(df, col)
+            if not parsed_dates.isna().all():
+                df[col] = parsed_dates
+                date_cols = [col]  # We only use the first valid date column
+                detected_date_format = format_detected
+                logger.info(f"Using first valid date column: {col} with format {format_detected}")
+                break  # Stop after finding the first valid date column
+        except Exception as e:
+            logger.warning(f"Error parsing dates in column {col}: {e}")
+    
+    # If still no date columns found, try all columns as a last resort
     if not date_cols:
-        # Check for any columns containing date-related terms
-        date_candidates = [col for col in df.columns if any(term in col.lower() for term in 
-                                                          ['date', 'day', 'time', 'report', 'start', 
-                                                            'end', 'period', 'month', 'year'])]
-        
-        if date_candidates:
-            for col in date_candidates:
-                parsed_dates, format_detected = parse_dates_with_format_detection(df, col)
-                if not parsed_dates.isna().all():
-                    df[col] = parsed_dates
-                    date_cols.append(col)
-                    detected_date_format = format_detected
-                    logger.info(f"Found date column: {col} with format {format_detected}")
-        
-        # If still no date columns, try all string columns
-        if not date_cols:
-            for col in df.columns:
-                if df[col].dtype == 'object':
-                    # Check if column might contain dates (simple check for / or - or .)
-                    sample_vals = df[col].dropna().astype(str).head(3)
-                    if any(('/' in str(val) or '-' in str(val) or '.' in str(val)) for val in sample_vals):
-                        try:
-                            parsed_dates, format_detected = parse_dates_with_format_detection(df, col)
-                            if not parsed_dates.isna().all():
-                                df[col] = parsed_dates
-                                date_cols.append(col)
-                                detected_date_format = format_detected
-                                logger.info(f"Found date column: {col} with format {format_detected}")
-                                break
-                        except Exception as e:
-                            logger.warning(f"Error parsing dates in column {col}: {e}")
+        for col in df.columns:
+            if col not in date_candidates:
+                try:
+                    parsed_dates, format_detected = parse_dates_with_format_detection(df, col)
+                    if not parsed_dates.isna().all():
+                        df[col] = parsed_dates
+                        date_cols = [col]
+                        detected_date_format = format_detected
+                        logger.info(f"Found date column: {col} with format {format_detected}")
+                        break
+                except Exception as e:
+                    continue
     
     # Handle numeric columns with commas in the values (e.g., "1,476.69")
     for col in df.columns:
