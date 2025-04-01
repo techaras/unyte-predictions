@@ -43,6 +43,8 @@
                 </div>
                 <!-- Hidden input to maintain compatibility -->
                 <input type="hidden" name="date_col" value="{{ selected_date_col }}">
+                <!-- Hidden input for the last date in the CSV -->
+                <input type="hidden" id="last_csv_date" value="{{ last_date }}">
             </div>
             
             <div class="form-group">
@@ -74,8 +76,13 @@
             </div>
             
             <div class="form-group">
-                <label for="forecast_period">Forecast Period (days):</label>
-                <input type="number" name="forecast_period" id="forecast_period" value="30" min="1" max="365" required>
+                <label for="campaign_end_date">Campaign End Date (Forecast Period):</label>
+                <input type="date" name="campaign_end_date" id="campaign_end_date" class="form-control" required>
+                <div id="days-display" class="format-hint" style="margin-top: 10px; background-color: #e8f5e9; padding: 8px; border-radius: 4px; color: #2e7d32;">
+                    <span id="days-count">30</span> days from last data point (<span id="csv-last-date"></span>)
+                </div>
+                <!-- Hidden input to maintain compatibility with backend -->
+                <input type="hidden" name="forecast_period" id="forecast_period" value="30">
             </div>
             
             <div class="form-group">
@@ -85,5 +92,53 @@
     </div>
     
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <!-- Date picker functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add date picker functionality
+            const campaignEndDateInput = document.getElementById('campaign_end_date');
+            const forecastPeriodInput = document.getElementById('forecast_period');
+            const daysCountSpan = document.getElementById('days-count');
+            const csvLastDateSpan = document.getElementById('csv-last-date');
+            const lastCsvDateInput = document.getElementById('last_csv_date');
+            
+            // Get the last date from the CSV (from the hidden input)
+            const lastCsvDateStr = lastCsvDateInput.value;
+            const lastCsvDate = new Date(lastCsvDateStr);
+            
+            // Format last CSV date for display
+            const formatDate = (date) => {
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${day}/${month}/${year}`;
+            };
+            
+            // Set CSV last date in the display
+            csvLastDateSpan.textContent = formatDate(lastCsvDate);
+            
+            // Set default end date (30 days from last CSV date)
+            const defaultEndDate = new Date(lastCsvDate);
+            defaultEndDate.setDate(lastCsvDate.getDate() + 30);
+            
+            // Format the date for the input value (YYYY-MM-DD)
+            const formatDateForInput = (date) => {
+                return date.toISOString().split('T')[0];
+            };
+            
+            campaignEndDateInput.value = formatDateForInput(defaultEndDate);
+            
+            // Update days count when date changes
+            campaignEndDateInput.addEventListener('change', function() {
+                const selectedDate = new Date(this.value);
+                const diffTime = Math.abs(selectedDate - lastCsvDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                daysCountSpan.textContent = diffDays;
+                forecastPeriodInput.value = diffDays;
+            });
+        });
+    </script>
 </body>
 </html>
