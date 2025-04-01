@@ -52,6 +52,7 @@ def upload_file():
             
             # Store the filename and format info in session to retrieve it later
             session['uploaded_file'] = unique_filename
+            session['original_filename'] = file.filename  # Store original filename
             session['file_format'] = file_format
             session['detected_date_format'] = detected_date_format
             # Store the selected date column (first/only one in the list)
@@ -64,7 +65,8 @@ def upload_file():
                                   date_cols=date_cols,  # Still pass this for backward compatibility
                                   selected_date_col=date_cols[0],  # But explicitly pass the selected one
                                   numeric_cols=numeric_cols,
-                                  detected_format=detected_date_format)
+                                  detected_format=detected_date_format,
+                                  original_filename=file.filename)  # Pass original filename to template
                 
         except Exception as e:
             error_message = f'Error processing file: {str(e)}'
@@ -115,6 +117,7 @@ def process():
         # Clean up the file
         os.remove(file_path)
         session.pop('uploaded_file', None)
+        session.pop('original_filename', None)  # Clean up original filename from session
         session.pop('detected_date_format', None)
         session.pop('file_format', None)
         session.pop('selected_date_col', None)
@@ -129,6 +132,7 @@ def process():
         if os.path.exists(file_path):
             os.remove(file_path)
         session.pop('uploaded_file', None)
+        session.pop('original_filename', None)  # Clean up original filename from session
         session.pop('detected_date_format', None)
         session.pop('file_format', None)
         session.pop('selected_date_col', None)

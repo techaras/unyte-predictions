@@ -21,6 +21,16 @@
                 </div>
             {% endif %}
         {% endwith %}
+
+        <!-- Add this new section to display the CSV filename -->
+        <div class="column-select-form">
+            <div class="form-group">
+                <label>CSV File:</label>
+                <div style="padding: 12px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; text-align: left; font-size: 16px; cursor: default;">
+                    {{ original_filename }}
+                </div>
+            </div>
+        </div>
         
         <form action="{{ url_for('main.process') }}" method="post" class="column-select-form">
             <div class="form-group">
