@@ -75,9 +75,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Budget calculation functionality
     function calculateBudget(forecastDays) {
         // Get the daily average from the server-provided data or default to 0
-        const budgetData = window.budgetData || { dailyAverage: 0, currency: '£' };
+        const budgetData = window.budgetData || { dailyAverage: 0, currency: '£', isValid: false };
         const dailyAverage = parseFloat(budgetData.dailyAverage) || 0;
         const currency = budgetData.currency || '£';
+        const isValidBudget = budgetData.isValid === true;
         
         // Calculate total budget
         const totalBudget = dailyAverage * forecastDays;
@@ -87,6 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const budgetCurrency = document.getElementById('budget-currency');
         const budgetInput = document.getElementById('budget-input');
         const dailyBudgetText = document.getElementById('daily-budget-text');
+        const budgetWarning = document.getElementById('budget-warning');
         const estimatedBudget = document.getElementById('estimated_budget');
         
         if (budgetPeriodText) {
@@ -99,11 +101,35 @@ document.addEventListener('DOMContentLoaded', function() {
         if (budgetInput) {
             // Set the value for the editable input
             budgetInput.value = formatNumber(totalBudget);
+            
+            // Apply styling based on validity
+            if (!isValidBudget) {
+                budgetInput.classList.add('invalid-budget-input');
+            } else {
+                budgetInput.classList.remove('invalid-budget-input');
+            }
         }
         if (dailyBudgetText) {
             dailyBudgetText.textContent = 
                 `~${currency}${formatNumber(dailyAverage)} per day based on ${forecastDays}-day period`;
+            
+            // Apply styling based on validity
+            if (!isValidBudget) {
+                dailyBudgetText.classList.add('invalid-budget');
+            } else {
+                dailyBudgetText.classList.remove('invalid-budget');
+            }
         }
+        
+        // Show/hide warning message
+        if (budgetWarning) {
+            if (!isValidBudget) {
+                budgetWarning.style.display = 'block';
+            } else {
+                budgetWarning.style.display = 'none';
+            }
+        }
+        
         if (estimatedBudget) {
             estimatedBudget.value = totalBudget;
         }
@@ -197,6 +223,15 @@ document.addEventListener('DOMContentLoaded', function() {
             if (dailyBudgetText) {
                 dailyBudgetText.textContent = 
                     `~${currency}${formatNumber(dailyAverage)} per day based on ${forecastDays}-day period`;
+                
+                // Remove invalid class as user is now manually setting budget
+                dailyBudgetText.classList.remove('invalid-budget');
+            }
+            
+            // Hide warning when user manually edits budget
+            const budgetWarning = document.getElementById('budget-warning');
+            if (budgetWarning) {
+                budgetWarning.style.display = 'none';
             }
         });
         

@@ -231,36 +231,71 @@ def calculate_budget_data(df, file_format):
     
     budget_data = {
         'dailyAverage': 0,
-        'currency': '£'  # Default currency
+        'currency': '£',  # Default currency
+        'isValid': False  # Flag to indicate if data is based on actual cost
     }
     
     # Identify spending columns based on file source
     spend_columns = []
+    valid_cost_columns = []
+    conversion_value_columns = []
     
     if file_format['source'] == 'google_ads':
-        # For Google Ads, look for cost columns
-        potential_columns = ['Cost', 'All conv. value', 'Cost / conv.']
-        spend_columns = [col for col in potential_columns if col in df.columns]
+        # For Google Ads, separate cost columns from conversion value columns
+        valid_cost_columns = ['Cost', 'Cost / click', 'Cost / conv.']
+        conversion_value_columns = ['All conv. value', 'Conv. value']
         
-        # If specific columns aren't found, look for columns containing 'cost'
+        # First try to find actual cost columns
+        spend_columns = [col for col in valid_cost_columns if col in df.columns]
+        
+        # If no valid cost columns found, then try conversion value columns
         if not spend_columns:
-            spend_columns = [col for col in df.columns if 'cost' in col.lower()]
+            spend_columns = [col for col in conversion_value_columns if col in df.columns]
+            
+        # If still no columns found, look for any column containing cost
+        if not spend_columns:
+            for col in df.columns:
+                col_lower = col.lower()
+                if 'cost' in col_lower and 'value' not in col_lower:
+                    spend_columns.append(col)
             
     elif file_format['source'] == 'meta':
         # For Meta, look for spend columns
-        potential_columns = ['Amount spent', 'Amount spent (EUR)', 'Spend', 'Cost per result']
-        spend_columns = [col for col in potential_columns if col in df.columns]
+        valid_cost_columns = ['Amount spent', 'Amount spent (EUR)', 'Spend', 'Cost per result']
+        spend_columns = [col for col in valid_cost_columns if col in df.columns]
         
         # If specific columns aren't found, look for columns containing 'spend' or 'cost'
         if not spend_columns:
-            spend_columns = [col for col in df.columns if any(term in col.lower() for term in ['spend', 'cost', 'amount'])]
+            for col in df.columns:
+                col_lower = col.lower()
+                if any(term in col_lower for term in ['spend', 'cost', 'amount']) and 'value' not in col_lower:
+                    spend_columns.append(col)
     
     # For unknown formats, look for general spending keywords
     if not spend_columns:
-        spend_keywords = ['spend', 'cost', 'budget', 'amount']
-        spend_columns = [col for col in df.columns if any(keyword in col.lower() for keyword in spend_keywords)]
+        for col in df.columns:
+            col_lower = col.lower()
+            if any(keyword in col_lower for keyword in ['spend', 'cost', 'budget', 'amount']) and not any(term in col_lower for term in ['value', 'revenue', 'conv. value']):
+                spend_columns.append(col)
     
     logger.info(f"Identified spend columns: {spend_columns}")
+    
+    # Determine if we're using a valid cost column
+    if spend_columns:
+        primary_spend_column = spend_columns[0]
+        col_lower = primary_spend_column.lower()
+        
+        # Check if this is a valid cost column (not conversion value)
+        budget_data['isValid'] = (
+            any(cost_col.lower() in col_lower for cost_col in valid_cost_columns) or
+            ('cost' in col_lower and not any(term in col_lower for term in ['value', 'revenue', 'conv. value']))
+        )
+        
+        logger.info(f"Using column '{primary_spend_column}' for budget calculation. Valid cost data: {budget_data['isValid']}")
+        
+        # Add warning if using conversion value instead of cost
+        if not budget_data['isValid']:
+            logger.warning(f"WARNING: Using '{primary_spend_column}' for budget calculation, which appears to be conversion value, not ad spend!")
     
     # Find currency symbol if available
     for col in spend_columns:
@@ -279,7 +314,6 @@ def calculate_budget_data(df, file_format):
     # Calculate daily average spend
     if spend_columns:
         primary_spend_column = spend_columns[0]  # Use the first identified spending column
-        logger.info(f"Using {primary_spend_column} as the primary spending column for budget calculation")
         
         # Convert to numeric if needed
         if df[primary_spend_column].dtype == 'object':
@@ -301,7 +335,7 @@ def calculate_budget_data(df, file_format):
         
         if num_days > 0:
             budget_data['dailyAverage'] = float(total_spend / num_days)
-            logger.info(f"Calculated daily average spend: {budget_data['dailyAverage']} {budget_data['currency']}")
+            logger.info(f"Calculated daily average spend: {budget_data['dailyAverage']} {budget_data['currency']} (Valid data: {budget_data['isValid']})")
         else:
             logger.warning("Could not calculate daily average spend: no days found in data")
     else:
