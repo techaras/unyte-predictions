@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Select Columns - Unyte Predictions</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Add budget data initialization script -->
+    <script>
+        // Make budget data available to JavaScript
+        window.budgetData = {{ budget_data|tojson|safe }};
+    </script>
 </head>
 <body>
     <div class="container">
@@ -84,6 +89,23 @@
                 <!-- Hidden input to maintain compatibility with backend -->
                 <input type="hidden" name="forecast_period" id="forecast_period" value="30">
             </div>
+
+            <!-- Budget section -->
+            <div class="form-group budget-section">
+                <h2>Total Campaign Budget</h2>
+                <p class="budget-subtitle" id="budget-period-text">Budget will be distributed across the 30-day forecast period</p>
+                
+                <div class="budget-box">
+                    <span id="budget-currency">{{ budget_data.currency }}</span> <span id="budget-value">0.00</span>
+                </div>
+                
+                <div class="daily-budget">
+                    <span id="daily-budget-text">~{{ budget_data.currency }}{{ "%.2f"|format(budget_data.dailyAverage) }} per day based on 30-day period</span>
+                </div>
+                
+                <!-- Hidden input to store the calculated budget value -->
+                <input type="hidden" name="estimated_budget" id="estimated_budget" value="0">
+            </div>
             
             <div class="form-group">
                 <button type="submit" class="btn">Generate Forecast</button>
@@ -92,53 +114,5 @@
     </div>
     
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    
-    <!-- Date picker functionality -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add date picker functionality
-            const campaignEndDateInput = document.getElementById('campaign_end_date');
-            const forecastPeriodInput = document.getElementById('forecast_period');
-            const daysCountSpan = document.getElementById('days-count');
-            const csvLastDateSpan = document.getElementById('csv-last-date');
-            const lastCsvDateInput = document.getElementById('last_csv_date');
-            
-            // Get the last date from the CSV (from the hidden input)
-            const lastCsvDateStr = lastCsvDateInput.value;
-            const lastCsvDate = new Date(lastCsvDateStr);
-            
-            // Format last CSV date for display
-            const formatDate = (date) => {
-                const day = String(date.getDate()).padStart(2, '0');
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const year = date.getFullYear();
-                return `${day}/${month}/${year}`;
-            };
-            
-            // Set CSV last date in the display
-            csvLastDateSpan.textContent = formatDate(lastCsvDate);
-            
-            // Set default end date (30 days from last CSV date)
-            const defaultEndDate = new Date(lastCsvDate);
-            defaultEndDate.setDate(lastCsvDate.getDate() + 30);
-            
-            // Format the date for the input value (YYYY-MM-DD)
-            const formatDateForInput = (date) => {
-                return date.toISOString().split('T')[0];
-            };
-            
-            campaignEndDateInput.value = formatDateForInput(defaultEndDate);
-            
-            // Update days count when date changes
-            campaignEndDateInput.addEventListener('change', function() {
-                const selectedDate = new Date(this.value);
-                const diffTime = Math.abs(selectedDate - lastCsvDate);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                
-                daysCountSpan.textContent = diffDays;
-                forecastPeriodInput.value = diffDays;
-            });
-        });
-    </script>
 </body>
 </html>

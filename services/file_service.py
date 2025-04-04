@@ -214,3 +214,97 @@ def prepare_data_for_forecast(file_path, file_format, date_col, date_format, sel
             df[col] = pd.to_numeric(df[col], errors='coerce')
     
     return df
+
+def calculate_budget_data(df, file_format):
+    """
+    Calculate daily average spend based on the CSV data.
+    
+    Args:
+        df: DataFrame containing the data
+        file_format: Dictionary with detected file format info
+        
+    Returns:
+        dict: Dictionary with budget data including daily average and currency
+    """
+    import pandas as pd
+    from config import logger
+    
+    budget_data = {
+        'dailyAverage': 0,
+        'currency': '£'  # Default currency
+    }
+    
+    # Identify spending columns based on file source
+    spend_columns = []
+    
+    if file_format['source'] == 'google_ads':
+        # For Google Ads, look for cost columns
+        potential_columns = ['Cost', 'All conv. value', 'Cost / conv.']
+        spend_columns = [col for col in potential_columns if col in df.columns]
+        
+        # If specific columns aren't found, look for columns containing 'cost'
+        if not spend_columns:
+            spend_columns = [col for col in df.columns if 'cost' in col.lower()]
+            
+    elif file_format['source'] == 'meta':
+        # For Meta, look for spend columns
+        potential_columns = ['Amount spent', 'Amount spent (EUR)', 'Spend', 'Cost per result']
+        spend_columns = [col for col in potential_columns if col in df.columns]
+        
+        # If specific columns aren't found, look for columns containing 'spend' or 'cost'
+        if not spend_columns:
+            spend_columns = [col for col in df.columns if any(term in col.lower() for term in ['spend', 'cost', 'amount'])]
+    
+    # For unknown formats, look for general spending keywords
+    if not spend_columns:
+        spend_keywords = ['spend', 'cost', 'budget', 'amount']
+        spend_columns = [col for col in df.columns if any(keyword in col.lower() for keyword in spend_keywords)]
+    
+    logger.info(f"Identified spend columns: {spend_columns}")
+    
+    # Find currency symbol if available
+    for col in spend_columns:
+        # Check if column name contains currency indicators
+        col_lower = col.lower()
+        if 'eur' in col_lower or '€' in col_lower:
+            budget_data['currency'] = '€'
+            break
+        elif 'usd' in col_lower or '$' in col_lower:
+            budget_data['currency'] = '$'
+            break
+        elif 'gbp' in col_lower or '£' in col_lower:
+            budget_data['currency'] = '£'
+            break
+    
+    # Calculate daily average spend
+    if spend_columns:
+        primary_spend_column = spend_columns[0]  # Use the first identified spending column
+        logger.info(f"Using {primary_spend_column} as the primary spending column for budget calculation")
+        
+        # Convert to numeric if needed
+        if df[primary_spend_column].dtype == 'object':
+            df[primary_spend_column] = df[primary_spend_column].astype(str).str.replace(',', '')
+            df[primary_spend_column] = pd.to_numeric(df[primary_spend_column], errors='coerce')
+        
+        # Calculate the daily average
+        total_spend = df[primary_spend_column].sum()
+        date_col = file_format['date_columns'][0] if file_format['date_columns'] else None
+        
+        if date_col and date_col in df.columns:
+            # Count unique dates to determine number of days
+            num_days = df[date_col].nunique()
+            logger.info(f"Found {num_days} unique days in data")
+        else:
+            # If no date column found, use row count as fallback
+            num_days = len(df)
+            logger.info(f"Using row count ({num_days}) as number of days")
+        
+        if num_days > 0:
+            budget_data['dailyAverage'] = float(total_spend / num_days)
+            logger.info(f"Calculated daily average spend: {budget_data['dailyAverage']} {budget_data['currency']}")
+        else:
+            logger.warning("Could not calculate daily average spend: no days found in data")
+    else:
+        logger.warning("No spending columns identified in the CSV")
+    
+    return budget_data

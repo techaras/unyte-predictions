@@ -66,4 +66,105 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // Budget calculation functionality
+    function calculateBudget(forecastDays) {
+        // Get the daily average from the server-provided data or default to 0
+        const budgetData = window.budgetData || { dailyAverage: 0, currency: '£' };
+        const dailyAverage = parseFloat(budgetData.dailyAverage) || 0;
+        const currency = budgetData.currency || '£';
+        
+        // Calculate total budget
+        const totalBudget = dailyAverage * forecastDays;
+        
+        // Format numbers with commas
+        const formatNumber = (num) => {
+            return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        };
+        
+        // Update the UI elements
+        const budgetPeriodText = document.getElementById('budget-period-text');
+        const budgetCurrency = document.getElementById('budget-currency');
+        const budgetValue = document.getElementById('budget-value');
+        const dailyBudgetText = document.getElementById('daily-budget-text');
+        const estimatedBudget = document.getElementById('estimated_budget');
+        
+        if (budgetPeriodText) {
+            budgetPeriodText.textContent = 
+                `Budget will be distributed across the ${forecastDays}-day forecast period`;
+        }
+        if (budgetCurrency) {
+            budgetCurrency.textContent = currency;
+        }
+        if (budgetValue) {
+            budgetValue.textContent = formatNumber(totalBudget);
+        }
+        if (dailyBudgetText) {
+            dailyBudgetText.textContent = 
+                `~${currency}${formatNumber(dailyAverage)} per day based on ${forecastDays}-day period`;
+        }
+        if (estimatedBudget) {
+            estimatedBudget.value = totalBudget;
+        }
+    }
+    
+    // Setup date picker and budget calculation
+    const campaignEndDateInput = document.getElementById('campaign_end_date');
+    const forecastPeriodInput = document.getElementById('forecast_period');
+    const lastCsvDateInput = document.getElementById('last_csv_date');
+    const daysCountSpan = document.getElementById('days-count');
+    const csvLastDateSpan = document.getElementById('csv-last-date');
+    
+    if (campaignEndDateInput && forecastPeriodInput && lastCsvDateInput) {
+        // Format last CSV date for display
+        const formatDate = (date) => {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        };
+        
+        // Get the last date from the CSV
+        const lastCsvDateStr = lastCsvDateInput.value;
+        const lastCsvDate = new Date(lastCsvDateStr);
+        
+        // Set CSV last date in the display if the element exists
+        if (csvLastDateSpan) {
+            csvLastDateSpan.textContent = formatDate(lastCsvDate);
+        }
+        
+        // Set default end date (30 days from last CSV date)
+        const defaultEndDate = new Date(lastCsvDate);
+        defaultEndDate.setDate(lastCsvDate.getDate() + 30);
+        
+        // Format the date for the input value (YYYY-MM-DD)
+        const formatDateForInput = (date) => {
+            return date.toISOString().split('T')[0];
+        };
+        
+        // Set default date if it hasn't been set already
+        if (!campaignEndDateInput.value) {
+            campaignEndDateInput.value = formatDateForInput(defaultEndDate);
+        }
+        
+        // Update days count and budget when date changes
+        campaignEndDateInput.addEventListener('change', function() {
+            const selectedDate = new Date(this.value);
+            const diffTime = Math.abs(selectedDate - lastCsvDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            // Update the forecast period
+            if (daysCountSpan) {
+                daysCountSpan.textContent = diffDays;
+            }
+            forecastPeriodInput.value = diffDays;
+            
+            // Update the budget calculation
+            calculateBudget(diffDays);
+        });
+        
+        // Initial calculation with default value
+        const initialDays = parseInt(forecastPeriodInput.value) || 30;
+        calculateBudget(initialDays);
+    }
 });

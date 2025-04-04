@@ -2,7 +2,7 @@ import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from config import logger, UPLOAD_FOLDER
 from utils.file_utils import allowed_file, generate_unique_filename
-from services.file_service import process_uploaded_file, prepare_data_for_forecast
+from services.file_service import process_uploaded_file, prepare_data_for_forecast, calculate_budget_data
 from services.forecast_service import generate_forecast
 from utils.date_utils import convert_column_to_datetime
 from datetime import datetime
@@ -37,6 +37,10 @@ def upload_file():
         try:
             # Process the uploaded file
             df, date_cols, numeric_cols, detected_date_format, file_format = process_uploaded_file(file_path)
+            
+            # Calculate budget data
+            budget_data = calculate_budget_data(df, file_format)
+            logger.info(f"Calculated budget data: daily avg = {budget_data['dailyAverage']} {budget_data['currency']}")
             
             if not date_cols:
                 error_msg = 'No date column found. Please ensure your CSV has a column with dates.'
@@ -80,6 +84,7 @@ def upload_file():
             session['detected_date_format'] = detected_date_format
             session['selected_date_col'] = selected_date_col
             session['last_date'] = last_date_str  # Store the last date in session
+            session['budget_data'] = budget_data  # Store budget data in session
             
             logger.info(f"Automatically selected date column: {selected_date_col}")
             
@@ -90,7 +95,8 @@ def upload_file():
                                   numeric_cols=numeric_cols,
                                   detected_format=detected_date_format,
                                   original_filename=file.filename,
-                                  last_date=last_date_str)  # Pass last date to template
+                                  last_date=last_date_str,  # Pass last date to template
+                                  budget_data=budget_data)  # Pass budget data to template
                 
         except Exception as e:
             error_message = f'Error processing file: {str(e)}'
@@ -110,6 +116,10 @@ def process():
     selected_metrics = request.form.getlist('metrics')
     forecast_period = int(request.form.get('forecast_period', 30))
     date_format = request.form.get('date_format', session.get('detected_date_format', 'auto'))
+    
+    # Get estimated budget
+    estimated_budget = request.form.get('estimated_budget', 0)
+    logger.info(f"Estimated budget for campaign: {estimated_budget}")
     
     # Also get the campaign end date if provided
     campaign_end_date = request.form.get('campaign_end_date')
@@ -151,6 +161,7 @@ def process():
         session.pop('file_format', None)
         session.pop('selected_date_col', None)
         session.pop('last_date', None)  # Clean up last date from session
+        session.pop('budget_data', None)  # Clean up budget data from session
         
         return render_template('results.html', results=results)
     
@@ -167,4 +178,5 @@ def process():
         session.pop('file_format', None)
         session.pop('selected_date_col', None)
         session.pop('last_date', None)  # Clean up last date from session
+        session.pop('budget_data', None)  # Clean up budget data from session
         return redirect(url_for('main.index'))
