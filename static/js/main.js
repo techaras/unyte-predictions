@@ -67,6 +67,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Format numbers with commas
+    function formatNumber(num) {
+        return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+    
     // Budget calculation functionality
     function calculateBudget(forecastDays) {
         // Get the daily average from the server-provided data or default to 0
@@ -77,15 +82,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Calculate total budget
         const totalBudget = dailyAverage * forecastDays;
         
-        // Format numbers with commas
-        const formatNumber = (num) => {
-            return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        };
-        
         // Update the UI elements
         const budgetPeriodText = document.getElementById('budget-period-text');
         const budgetCurrency = document.getElementById('budget-currency');
-        const budgetValue = document.getElementById('budget-value');
+        const budgetInput = document.getElementById('budget-input');
         const dailyBudgetText = document.getElementById('daily-budget-text');
         const estimatedBudget = document.getElementById('estimated_budget');
         
@@ -96,8 +96,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (budgetCurrency) {
             budgetCurrency.textContent = currency;
         }
-        if (budgetValue) {
-            budgetValue.textContent = formatNumber(totalBudget);
+        if (budgetInput) {
+            // Set the value for the editable input
+            budgetInput.value = formatNumber(totalBudget);
         }
         if (dailyBudgetText) {
             dailyBudgetText.textContent = 
@@ -166,5 +167,51 @@ document.addEventListener('DOMContentLoaded', function() {
         // Initial calculation with default value
         const initialDays = parseInt(forecastPeriodInput.value) || 30;
         calculateBudget(initialDays);
+    }
+    
+    // Handle editable budget input
+    const budgetInput = document.getElementById('budget-input');
+    if (budgetInput) {
+        // Add event listener for when the user edits the budget
+        budgetInput.addEventListener('input', function() {
+            // Remove any commas that might be in the input
+            const rawValue = this.value.replace(/,/g, '');
+            // Parse the value
+            let totalBudget = parseFloat(rawValue) || 0;
+            
+            // Update the hidden field
+            const estimatedBudget = document.getElementById('estimated_budget');
+            if (estimatedBudget) {
+                estimatedBudget.value = totalBudget;
+            }
+            
+            // Update the daily budget display
+            const forecastPeriodInput = document.getElementById('forecast_period');
+            const forecastDays = parseInt(forecastPeriodInput.value) || 30;
+            const dailyAverage = totalBudget / forecastDays;
+            
+            const dailyBudgetText = document.getElementById('daily-budget-text');
+            const budgetCurrency = document.getElementById('budget-currency');
+            const currency = budgetCurrency ? budgetCurrency.textContent : '£';
+            
+            if (dailyBudgetText) {
+                dailyBudgetText.textContent = 
+                    `~${currency}${formatNumber(dailyAverage)} per day based on ${forecastDays}-day period`;
+            }
+        });
+        
+        // Add formatting when the field loses focus
+        budgetInput.addEventListener('blur', function() {
+            const rawValue = this.value.replace(/,/g, '');
+            const totalBudget = parseFloat(rawValue) || 0;
+            this.value = formatNumber(totalBudget);
+        });
+        
+        // Remove formatting when the field gets focus
+        budgetInput.addEventListener('focus', function() {
+            const rawValue = this.value.replace(/,/g, '');
+            const totalBudget = parseFloat(rawValue) || 0;
+            this.value = totalBudget.toFixed(2);
+        });
     }
 });
