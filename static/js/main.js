@@ -40,25 +40,60 @@ document.addEventListener('DOMContentLoaded', function() {
         adPlatformBadge.textContent = platformName;
     }
 
-    // Pre-fill the forecast title with a default name
+    // Pre-fill the forecast title with a smart default name
     const forecastTitleInput = document.getElementById('forecast_title');
     if (forecastTitleInput) {
-        // Try to get filename from the displayed CSV file info
-        const fileDisplay = document.querySelector('.column-select-form .file-input-label');
-        const originalFilename = fileDisplay ? fileDisplay.textContent.trim() : '';
+        // Get the platform type
+        const fileFormatSource = window.fileFormat ? window.fileFormat.source : 'unknown';
+        let platformName = 'Campaign';
         
-        if (originalFilename) {
-            // Extract a default name from the filename
-            const nameParts = originalFilename.split('.');
-            nameParts.pop(); // Remove file extension
-            const defaultName = nameParts.join('.');
-            
-            // Set a default forecast name
-            forecastTitleInput.value = `Forecast: ${defaultName.substring(0, 30)}`;
-        } else {
-            // Fallback default name
-            forecastTitleInput.value = `Forecast: ${new Date().toLocaleDateString()}`;
+        if (fileFormatSource === 'google_ads') {
+            platformName = 'Google Ads';
+        } else if (fileFormatSource === 'meta') {
+            platformName = 'Meta';
+        } else if (fileFormatSource === 'amazon') {
+            platformName = 'Amazon Ads';
         }
+        
+        // Get date information
+        const lastCsvDateInput = document.getElementById('last_csv_date');
+        let dateInfo = '';
+        
+        if (lastCsvDateInput && lastCsvDateInput.value) {
+            const lastDate = new Date(lastCsvDateInput.value);
+            // Format like "Feb 2025"
+            dateInfo = lastDate.toLocaleDateString('en-US', {month: 'short', year: 'numeric'});
+        } else {
+            // Fallback to current month/year
+            const currentDate = new Date();
+            dateInfo = currentDate.toLocaleDateString('en-US', {month: 'short', year: 'numeric'});
+        }
+        
+        // Try to extract campaign info from CSV filename
+        const csvFileElement = document.querySelector('.column-select-form div[style*="cursor: default"]');
+        let campaignInfo = '';
+        
+        if (csvFileElement) {
+            const filename = csvFileElement.textContent.trim();
+            // Extract campaign name patterns
+            if (filename.includes('Madrid')) {
+                campaignInfo = 'Madrid';
+            } else if (filename.includes('Campaign')) {
+                campaignInfo = 'Campaign';
+            }
+        }
+        
+        // Construct the title with available information
+        let titleParts = [platformName];
+        
+        if (campaignInfo) {
+            titleParts.push(campaignInfo);
+        }
+        
+        titleParts.push(dateInfo);
+        
+        // Set the forecast title
+        forecastTitleInput.value = titleParts.join(' - ');
     }
     
     // Select all/none buttons for metrics
