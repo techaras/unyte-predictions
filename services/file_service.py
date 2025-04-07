@@ -235,60 +235,60 @@ def calculate_budget_data(df, file_format):
         'isValid': False  # Flag to indicate if data is based on actual cost
     }
     
-    # Identify spending columns based on file source
-    spend_columns = []
-    valid_cost_columns = []
-    conversion_value_columns = []
-    
+    # Expanded lists of budget and spend columns to look for
     if file_format['source'] == 'google_ads':
-        # For Google Ads, separate cost columns from conversion value columns
-        valid_cost_columns = ['Cost', 'Cost / click', 'Cost / conv.']
+        # Google Ads budget columns (in priority order)
+        budget_columns = [
+            'Budget', 'Daily Budget', 'Campaign daily budget', 'Campaign budget',
+            'Cost', 'Cost / conv.', 'Cost / click', 'Avg. CPC', 'CPC', 
+            'Campaign spend', 'Ad group spend', 'Total cost', 'Ad spend'
+        ]
+        # Conversion value columns (less reliable for budget calculation)
         conversion_value_columns = ['All conv. value', 'Conv. value']
-        
-        # First try to find actual cost columns
-        spend_columns = [col for col in valid_cost_columns if col in df.columns]
-        
-        # If no valid cost columns found, then try conversion value columns
-        if not spend_columns:
-            spend_columns = [col for col in conversion_value_columns if col in df.columns]
-            
-        # If still no columns found, look for any column containing cost
-        if not spend_columns:
-            for col in df.columns:
-                col_lower = col.lower()
-                if 'cost' in col_lower and 'value' not in col_lower:
-                    spend_columns.append(col)
-            
     elif file_format['source'] == 'meta':
-        # For Meta, look for spend columns
-        valid_cost_columns = ['Amount spent', 'Amount spent (EUR)', 'Spend', 'Cost per result']
-        spend_columns = [col for col in valid_cost_columns if col in df.columns]
-        
-        # If specific columns aren't found, look for columns containing 'spend' or 'cost'
-        if not spend_columns:
-            for col in df.columns:
-                col_lower = col.lower()
-                if any(term in col_lower for term in ['spend', 'cost', 'amount']) and 'value' not in col_lower:
-                    spend_columns.append(col)
+        # Meta budget columns (in priority order)
+        budget_columns = [
+            'Ad set budget', 'Budget', 'Daily budget', 'Campaign budget',
+            'Amount spent', 'Amount spent (EUR)', 'Amount spent (USD)', 'Amount spent (GBP)',
+            'Spend', 'Cost', 'Cost per result', 'CPC', 'CPM'
+        ]
+        conversion_value_columns = []
+    else:
+        # Generic budget/spend columns for unknown formats
+        budget_columns = [
+            'Budget', 'Daily budget', 'Ad set budget', 'Campaign budget',
+            'Spend', 'Cost', 'Amount spent', 'Ad spend', 'CPC'
+        ]
+        conversion_value_columns = ['Value', 'Conv. value', 'Conversion value']
     
-    # For unknown formats, look for general spending keywords
+    # Try to find budget/spend columns in order of priority
+    spend_columns = [col for col in budget_columns if col in df.columns]
+    
+    # If no budget columns found, try a more flexible search
     if not spend_columns:
         for col in df.columns:
             col_lower = col.lower()
-            if any(keyword in col_lower for keyword in ['spend', 'cost', 'budget', 'amount']) and not any(term in col_lower for term in ['value', 'revenue', 'conv. value']):
+            if (any(term in col_lower for term in ['budget', 'spend', 'cost', 'amount']) and 
+                not any(term in col_lower for term in ['value', 'revenue', 'conv'])):
                 spend_columns.append(col)
+    
+    # Last resort: try conversion value columns (with warning)
+    if not spend_columns and file_format['source'] == 'google_ads':
+        spend_columns = [col for col in conversion_value_columns if col in df.columns]
+        if spend_columns:
+            logger.warning("No spend/budget columns found. Using conversion value columns as fallback (not recommended).")
     
     logger.info(f"Identified spend columns: {spend_columns}")
     
-    # Determine if we're using a valid cost column
+    # Determine if we're using valid cost data
     if spend_columns:
         primary_spend_column = spend_columns[0]
         col_lower = primary_spend_column.lower()
         
-        # Check if this is a valid cost column (not conversion value)
+        # Check if this is a valid budget or cost column (not conversion value)
         budget_data['isValid'] = (
-            any(cost_col.lower() in col_lower for cost_col in valid_cost_columns) or
-            ('cost' in col_lower and not any(term in col_lower for term in ['value', 'revenue', 'conv. value']))
+            any(term in col_lower for term in ['budget', 'spend', 'cost', 'amount', 'cpc', 'cpm']) and
+            not any(term in col_lower for term in ['value', 'revenue', 'conv'])
         )
         
         logger.info(f"Using column '{primary_spend_column}' for budget calculation. Valid cost data: {budget_data['isValid']}")
@@ -320,18 +320,26 @@ def calculate_budget_data(df, file_format):
             df[primary_spend_column] = df[primary_spend_column].astype(str).str.replace(',', '')
             df[primary_spend_column] = pd.to_numeric(df[primary_spend_column], errors='coerce')
         
-        # Calculate the daily average
-        total_spend = df[primary_spend_column].sum()
+        # Get the date column
         date_col = file_format['date_columns'][0] if file_format['date_columns'] else None
         
         if date_col and date_col in df.columns:
-            # Count unique dates to determine number of days
-            num_days = df[date_col].nunique()
-            logger.info(f"Found {num_days} unique days in data")
+            # Group by date to avoid double-counting campaigns on the same day
+            try:
+                date_spend_df = df.groupby(date_col)[primary_spend_column].sum().reset_index()
+                total_spend = date_spend_df[primary_spend_column].sum()
+                num_days = date_spend_df[date_col].nunique()
+                logger.info(f"Calculated date-grouped total spend: {total_spend} over {num_days} days")
+            except Exception as e:
+                logger.warning(f"Error grouping by date: {e}. Using ungrouped calculation.")
+                total_spend = df[primary_spend_column].sum()
+                num_days = df[date_col].nunique()
+                logger.info(f"Calculated ungrouped total spend: {total_spend} over {num_days} days")
         else:
             # If no date column found, use row count as fallback
+            total_spend = df[primary_spend_column].sum()
             num_days = len(df)
-            logger.info(f"Using row count ({num_days}) as number of days")
+            logger.info(f"No date column available. Using row count ({num_days}) as number of days")
         
         if num_days > 0:
             budget_data['dailyAverage'] = float(total_spend / num_days)
