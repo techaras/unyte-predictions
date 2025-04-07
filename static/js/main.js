@@ -14,10 +14,58 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Platform detection for the forecast title badge
+    const adPlatformBadge = document.getElementById('ad-platform-badge');
+    if (adPlatformBadge) {
+        // Get the file format from server-side data
+        const fileFormatSource = window.fileFormat ? window.fileFormat.source : 'unknown';
+        
+        let platformName = 'Unknown';
+        let platformClass = 'platform-unknown';
+        
+        // Determine platform based on file format
+        if (fileFormatSource === 'google_ads') {
+            platformName = 'Google Ads';
+            platformClass = 'platform-google';
+        } else if (fileFormatSource === 'meta') {
+            platformName = 'Meta Ads';
+            platformClass = 'platform-meta';
+        } else if (fileFormatSource === 'amazon') {
+            platformName = 'Amazon Ads';
+            platformClass = 'platform-amazon';
+        }
+        
+        // Add the platform badge
+        adPlatformBadge.className = `ad-platform-badge ${platformClass}`;
+        adPlatformBadge.textContent = platformName;
+    }
+
+    // Pre-fill the forecast title with a default name
+    const forecastTitleInput = document.getElementById('forecast_title');
+    if (forecastTitleInput) {
+        // Try to get filename from the displayed CSV file info
+        const fileDisplay = document.querySelector('.column-select-form .file-input-label');
+        const originalFilename = fileDisplay ? fileDisplay.textContent.trim() : '';
+        
+        if (originalFilename) {
+            // Extract a default name from the filename
+            const nameParts = originalFilename.split('.');
+            nameParts.pop(); // Remove file extension
+            const defaultName = nameParts.join('.');
+            
+            // Set a default forecast name
+            forecastTitleInput.value = `Forecast: ${defaultName.substring(0, 30)}`;
+        } else {
+            // Fallback default name
+            forecastTitleInput.value = `Forecast: ${new Date().toLocaleDateString()}`;
+        }
+    }
+    
     // Select all/none buttons for metrics
     const selectAll = document.getElementById('select-all');
     const selectNone = document.getElementById('select-none');
     
+    // The rest of your existing code continues here...
     if (selectAll) {
         selectAll.addEventListener('click', function() {
             const checkboxes = document.querySelectorAll('input[name="metrics"]');

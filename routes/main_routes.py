@@ -96,7 +96,8 @@ def upload_file():
                                   detected_format=detected_date_format,
                                   original_filename=file.filename,
                                   last_date=last_date_str,  # Pass last date to template
-                                  budget_data=budget_data)  # Pass budget data to template
+                                  budget_data=budget_data,
+                                  file_format=file_format)  # Pass budget data to template
                 
         except Exception as e:
             error_message = f'Error processing file: {str(e)}'

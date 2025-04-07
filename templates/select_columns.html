@@ -9,6 +9,8 @@
     <script>
         // Make budget data available to JavaScript
         window.budgetData = {{ budget_data|tojson|safe }};
+        // Make file format data available to JavaScript
+        window.fileFormat = {{ file_format|tojson|safe }};
     </script>
     <style>
         /* Additional styles for budget validation */
@@ -31,8 +33,61 @@
             font-size: 14px;
             border-left: 3px solid #d32f2f;
         }
+
+        /* Forecast title styling */
+        .forecast-title-container {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .forecast-title-container input {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .forecast-title-container input:focus {
+            box-shadow: none;
+        }
+
+        .ad-platform-badge {
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f8f9fa;
+            border-left: 1px solid #ddd;
+        }
+
+        /* Platform-specific styling */
+        .platform-google {
+            background-color: #f8f9fa;
+            color: #4285F4;
+        }
+
+        .platform-meta {
+            background-color: #f8f9fa;
+            color: #1877F2;
+        }
+
+        .platform-amazon {
+            background-color: #f8f9fa;
+            color: #FF9900;
+        }
+
+        .platform-unknown {
+            background-color: #f8f9fa;
+            color: #666;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Select Columns for Forecasting</h1>
@@ -60,6 +115,21 @@
         </div>
         
         <form action="{{ url_for('main.process') }}" method="post" class="column-select-form">
+            <!-- Move the forecast title into the form -->
+            <div class="form-group">
+                <label for="forecast_title">Forecast Title:</label>
+                <div class="forecast-title-container">
+                    <input type="text" name="forecast_title" id="forecast_title" class="form-control" 
+                        placeholder="Enter a name for this forecast" required>
+                    <div class="ad-platform-badge" id="ad-platform-badge">
+                        <!-- Platform badge will be inserted here via JavaScript -->
+                    </div>
+                </div>
+                <div class="format-hint">
+                    <small>Give your forecast a descriptive name for easier reference</small>
+                </div>
+            </div>
+
             <div class="form-group">
                 <label>Date Column (automatically selected):</label>
                 <div class="file-input-label" style="background-color: #f4f4f4; text-align: left; padding: 12px;">
@@ -119,7 +189,7 @@
                 
                 <div class="budget-box">
                     <span id="budget-currency">{{ budget_data.currency }}</span>
-                    <input type="text" id="budget-input" class="budget-input {% if not budget_data.isValid %}invalid-budget-input{% endif %}" value="0.00">
+                    <input type="text" name="budget-input" id="budget-input" class="budget-input {% if not budget_data.isValid %}invalid-budget-input{% endif %}" value="0.00">
                 </div>
                 
                 <div class="daily-budget">

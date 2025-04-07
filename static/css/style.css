@@ -366,3 +366,60 @@ tr:hover {
     text-align: center;
     font-size: 16px;
 }
+
+/* Forecast title styling */
+.forecast-title-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.forecast-title-container input {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    font-size: 16px;
+    outline: none;
+}
+
+.forecast-title-container input:focus {
+    box-shadow: none;
+}
+
+.ad-platform-badge {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fa;
+    border-left: 1px solid #ddd;
+}
+
+.ad-platform-badge img {
+    height: 24px;
+    width: auto;
+}
+
+/* Platform-specific styling */
+.platform-google {
+    background-color: #f8f9fa;
+    color: #4285F4;
+}
+
+.platform-meta {
+    background-color: #f8f9fa;
+    color: #1877F2;
+}
+
+.platform-amazon {
+    background-color: #f8f9fa;
+    color: #FF9900;
+}
+
+.platform-unknown {
+    background-color: #f8f9fa;
+    color: #666;
+}
