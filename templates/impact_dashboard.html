@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impact Analysis Simulator - Unyte</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            background-color: #f7f9fc;
+        }
+        
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .time-period {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .time-period select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            background-color: white;
+        }
+        
+        .simulator-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .simulator-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #444;
+            border-bottom: 1px solid #eee;
+            background-color: #f8f9fa;
+        }
+        
+        .simulator-table td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .simulator-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .simulator-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .metric-row {
+            background-color: #f9f9f9;
+        }
+        
+        .forecast-cell {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .platform-cell {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+       
+        .budget-cell {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .slider-container {
+            width: 250px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 5px;
+            background: #e0e0e0;
+            outline: none;
+            margin: 10px 0;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+        }
+        
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .impact-value {
+            font-weight: 600;
+        }
+        
+        .impact-positive {
+            color: #27ae60;
+        }
+        
+        .impact-negative {
+            color: #e74c3c;
+        }
+        
+        .impact-neutral {
+            color: #7f8c8d;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .nav-tab {
+            padding: 10px 20px;
+            margin-right: 5px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            font-weight: 500;
+            color: #666;
+            background-color: #f8f9fa;
+        }
+        
+        .nav-tab.active {
+            color: #3498db;
+            background-color: #fff;
+            border-color: #ddd;
+            border-bottom-color: #fff;
+            margin-bottom: -1px;
+        }
+        
+        .nav-tab:hover:not(.active) {
+            background-color: #f1f1f1;
+        }
+        
+        .action-buttons {
+            display: flex;
+            justify-content: flex-end; /* Align to right side */
+            margin-bottom: 20px;
+            gap: 10px; /* Space between buttons */
+        }
+        
+        .action-buttons .btn {
+            width: auto; /* Override the 100% width */
+            padding: 8px 15px; /* Smaller padding */
+            font-size: 14px; /* Smaller font */
+        }
+        
+        .reset-btn {
+            background-color: #95a5a6;
+        }
+        
+        .reset-btn:hover {
+            background-color: #7f8c8d;
+        }
+
+        .back-btn {
+            margin-bottom: 0; /* Remove bottom margin */
+        }
+        
+        .total-budget {
+            padding: 12px 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-container">
+            <h1>Impact Analysis Simulator</h1>
+            <div class="time-period">
+                <span>Time Period:</span>
+                <select id="time-period-select">
+                    <option value="30">Last 30 days</option>
+                    <option value="60">Last 60 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="nav-tabs">
+            <a href="{{ url_for('main.index') }}" class="nav-tab">Forecast</a>
+            <a href="{{ url_for('impact.index') }}" class="nav-tab">Impact Upload</a>
+            <a href="{{ url_for('impact.dashboard') }}" class="nav-tab active">Impact Dashboard</a>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="{{ url_for('impact.index') }}" class="btn back-btn">Back to Upload</a>
+            <button id="reset-btn" class="btn reset-btn">Reset Simulations</button>        
+        </div>
+        
+        <div class="total-budget">
+            <span>Total Budget:</span>
+            <span id="total-budget-value">${{ '%.2f'|format(impact_data.total_budget|float) }}</span>
+        </div>
+        
+        <table class="simulator-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Platform</th>
+                    <th>Campaign</th>
+                    <th>Metric</th>
+                    <th>Current</th>
+                    <th>Simulated</th>
+                    <th>Impact</th>
+                    <th>Budget</th>
+                </tr>
+            </thead>
+            <tbody id="impact-table-body">
+                {% for forecast in impact_data.forecasts %}
+                    {% for metric in forecast.metrics %}
+                        <tr class="forecast-row" data-forecast-id="{{ forecast.id }}">
+                            {% if loop.first %}
+                                <td rowspan="{{ forecast.metrics|length }}" class="forecast-cell">{{ forecast.title }}</td>
+                                <td rowspan="{{ forecast.metrics|length }}" class="platform-cell">
+                                    {{ forecast.platform }}
+                                </td>
+                                <td rowspan="{{ forecast.metrics|length }}">{{ forecast.campaign }}</td>
+                                <td rowspan="1">{{ metric.name }}</td>
+                                <td rowspan="1" class="metric-current" data-value="{{ metric.current }}">{{ metric.current }}</td>
+                                <td rowspan="1" class="metric-simulated" data-metric="{{ metric.name }}">{{ metric.simulated }}</td>
+                                <td rowspan="1" class="impact-value {% if metric.impact > 0 %}impact-positive{% elif metric.impact < 0 %}impact-negative{% else %}impact-neutral{% endif %}" data-metric="{{ metric.name }}">
+                                    {{ metric.impact }}%
+                                </td>
+                                {% if loop.first %}
+                                    <td rowspan="{{ forecast.metrics|length }}" class="budget-cell">
+                                        <div class="slider-container">
+                                            <input type="range" min="-50" max="100" value="0" class="slider" id="slider-{{ forecast.id }}">
+                                            <div class="slider-labels">
+                                                <span>-50%</span>
+                                                <span>0%</span>
+                                                <span>+100%</span>
+                                            </div>
+                                        </div>
+                                        <div class="budget-value" id="budget-{{ forecast.id }}">${{ '%.2f'|format(forecast.budget|float) }}</div>
+                                    </td>
+                                {% endif %}
+                            {% else %}
+                                <td>{{ metric.name }}</td>
+                                <td class="metric-current" data-value="{{ metric.current }}">{{ metric.current }}</td>
+                                <td class="metric-simulated" data-metric="{{ metric.name }}">{{ metric.simulated }}</td>
+                                <td class="impact-value {% if metric.impact > 0 %}impact-positive{% elif metric.impact < 0 %}impact-negative{% else %}impact-neutral{% endif %}" data-metric="{{ metric.name }}">
+                                    {{ metric.impact }}%
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial impact data from server
+            let impactData = {{ impact_data|tojson }};
+            
+            // Function to update displayed budget
+            function updateBudgetDisplay(forecastId, newBudget) {
+                const budgetElement = document.getElementById(`budget-${forecastId}`);
+                if (budgetElement) {
+                    budgetElement.textContent = `$${newBudget.toFixed(2)}`;
+                }
+            }
+            
+            // Function to update total budget display
+            function updateTotalBudgetDisplay() {
+                const totalBudget = impactData.forecasts.reduce((sum, forecast) => sum + forecast.budget, 0);
+                document.getElementById('total-budget-value').textContent = `$${totalBudget.toFixed(2)}`;
+            }
+            
+            // Function to update metric displays
+            function updateMetricDisplays(forecastId, updatedMetrics) {
+                const rows = document.querySelectorAll(`.forecast-row[data-forecast-id="${forecastId}"]`);
+                
+                rows.forEach(row => {
+                    const metricName = row.querySelector('[data-metric]').getAttribute('data-metric');
+                    const simulatedElement = row.querySelector(`.metric-simulated[data-metric="${metricName}"]`);
+                    const impactElement = row.querySelector(`.impact-value[data-metric="${metricName}"]`);
+                    
+                    const metricData = updatedMetrics.find(m => m.name === metricName);
+                    if (metricData && simulatedElement && impactElement) {
+                        // Update simulated value
+                        simulatedElement.textContent = metricName === 'ROAS' ? 
+                            metricData.simulated.toFixed(1) : Math.round(metricData.simulated);
+                        
+                        // Update impact value and color
+                        impactElement.textContent = `${metricData.impact.toFixed(1)}%`;
+                        
+                        // Remove all impact classes
+                        impactElement.classList.remove('impact-positive', 'impact-negative', 'impact-neutral');
+                        
+                        // Add appropriate impact class
+                        if (metricData.impact > 0) {
+                            impactElement.classList.add('impact-positive');
+                        } else if (metricData.impact < 0) {
+                            impactElement.classList.add('impact-negative');
+                        } else {
+                            impactElement.classList.add('impact-neutral');
+                        }
+                    }
+                });
+            }
+            
+            // Function to simulate budget changes
+            async function simulateBudgetChanges(changes) {
+                try {
+                    const response = await fetch('{{ url_for("impact.simulate") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            budget_changes: changes
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Simulation failed');
+                    }
+                    
+                    // Update the impact data with the response
+                    const updatedData = await response.json();
+                    impactData = updatedData;
+                    
+                    // Update the UI with the new data
+                    updatedData.forecasts.forEach(forecast => {
+                        updateBudgetDisplay(forecast.id, forecast.budget);
+                        updateMetricDisplays(forecast.id, forecast.metrics);
+                    });
+                    
+                    updateTotalBudgetDisplay();
+                    
+                } catch (error) {
+                    console.error('Error simulating budget changes:', error);
+                    alert('Failed to simulate budget changes. Please try again.');
+                }
+            }
+            
+            // Set up slider event listeners
+            document.querySelectorAll('.slider').forEach(slider => {
+                const forecastId = slider.id.replace('slider-', '');
+                
+                slider.addEventListener('input', function() {
+                    // Get the change percentage from the slider
+                    const changePercent = parseInt(this.value);
+                    
+                    // Find the forecast in the data
+                    const forecast = impactData.forecasts.find(f => f.id === forecastId);
+                    if (forecast) {
+                        // Calculate new budget based on original budget
+                        const newBudget = forecast.original_budget * (1 + changePercent/100);
+                        
+                        // Update the displayed budget immediately for responsive UI
+                        updateBudgetDisplay(forecastId, newBudget);
+                    }
+                });
+                
+                slider.addEventListener('change', function() {
+                    // This fires when the user releases the slider
+                    const changePercent = parseInt(this.value);
+                    
+                    // Create changes object with just this forecast's change
+                    const changes = {
+                        [forecastId]: changePercent
+                    };
+                    
+                    // Send to server for simulation
+                    simulateBudgetChanges(changes);
+                });
+            });
+            
+            // Reset button functionality
+            document.getElementById('reset-btn').addEventListener('click', function() {
+                // Reset all sliders to 0
+                document.querySelectorAll('.slider').forEach(slider => {
+                    slider.value = 0;
+                });
+                
+                // Create an object with 0% change for all forecasts
+                const changes = {};
+                impactData.forecasts.forEach(forecast => {
+                    changes[forecast.id] = 0;
+                });
+                
+                // Simulate with all zeros to reset
+                simulateBudgetChanges(changes);
+            });
+            
+            // Handle cleanup when leaving the page
+            window.addEventListener('beforeunload', async function() {
+                try {
+                    // Send cleanup request to remove temporary files
+                    await fetch('{{ url_for("impact.cleanup") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error during cleanup:', error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

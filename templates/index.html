@@ -5,10 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Unyte Predictions</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .nav-tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .nav-tab {
+            padding: 10px 20px;
+            margin-right: 5px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            font-weight: 500;
+            color: #666;
+            background-color: #f8f9fa;
+        }
+        
+        .nav-tab.active {
+            color: #3498db;
+            background-color: #fff;
+            border-color: #ddd;
+            border-bottom-color: #fff;
+            margin-bottom: -1px;
+        }
+        
+        .nav-tab:hover:not(.active) {
+            background-color: #f1f1f1;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <h1>Unyte Predictions</h1>
+        
+        <div class="nav-tabs">
+            <a href="{{ url_for('main.index') }}" class="nav-tab active">Forecast</a>
+            <a href="{{ url_for('impact.index') }}" class="nav-tab">Impact Analysis</a>
+        </div>
+        
         <p>Upload a CSV file with time-series data to generate forecasts using Prophet</p>
         
         {% with messages = get_flashed_messages() %}

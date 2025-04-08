@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impact Analysis Simulator - Unyte</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .file-drop-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            background-color: #f8f9fa;
+            transition: all 0.3s;
+        }
+        
+        .file-drop-area.highlight {
+            border-color: #3498db;
+            background-color: #e8f4fc;
+        }
+        
+        .file-drop-label {
+            display: block;
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #666;
+        }
+        
+        .file-list {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+        
+        .file-list li {
+            padding: 10px 15px;
+            background-color: #fff;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .file-remove {
+            color: #e74c3c;
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .file-remove:hover {
+            background-color: #fde9e8;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .nav-tab {
+            padding: 10px 20px;
+            margin-right: 5px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            font-weight: 500;
+            color: #666;
+            background-color: #f8f9fa;
+        }
+        
+        .nav-tab.active {
+            color: #3498db;
+            background-color: #fff;
+            border-color: #ddd;
+            border-bottom-color: #fff;
+            margin-bottom: -1px;
+        }
+        
+        .nav-tab:hover:not(.active) {
+            background-color: #f1f1f1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Impact Analysis Simulator</h1>
+        
+        <div class="nav-tabs">
+            <a href="{{ url_for('main.index') }}" class="nav-tab">Forecast</a>
+            <a href="{{ url_for('impact.index') }}" class="nav-tab active">Impact Analysis</a>
+        </div>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alerts">
+                    {% for message in messages %}
+                        <div class="alert">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <p>Upload multiple CSV files with forecast data to analyze potential budget impacts</p>
+        
+        <form action="{{ url_for('impact.upload_files') }}" method="post" enctype="multipart/form-data" id="upload-form">
+            <div class="file-drop-area" id="drop-area">
+                <span class="file-drop-label">Drag & drop files here or click to browse</span>
+                <input type="file" name="files[]" id="fileInput" multiple accept=".csv" style="display: none;">
+                <button type="button" id="browse-btn" class="btn-small">Browse Files</button>
+                <ul class="file-list" id="file-list"></ul>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn" id="upload-btn" disabled>Start Impact Analysis</button>
+            </div>
+        </form>
+        
+        <div style="margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
+            <h3 style="margin-top: 0;">How to use the Impact Analysis Simulator</h3>
+            <ol style="margin-left: 20px; line-height: 1.6;">
+                <li>Upload multiple forecast CSV files from different platforms (Google Ads, Meta, etc.)</li>
+                <li>The simulator will automatically detect metrics and budgets from each file</li>
+                <li>Use the interactive sliders to adjust budgets and see the impact on key metrics</li>
+                <li>Analyze performance across different campaigns to optimize budget allocation</li>
+            </ol>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropArea = document.getElementById('drop-area');
+            const fileInput = document.getElementById('fileInput');
+            const fileList = document.getElementById('file-list');
+            const browseBtn = document.getElementById('browse-btn');
+            const uploadBtn = document.getElementById('upload-btn');
+            
+            // Selected files
+            let selectedFiles = [];
+            
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            // Highlight drop area when item is dragged over it
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            // Handle dropped files
+            dropArea.addEventListener('drop', handleDrop, false);
+            
+            // Handle browse button
+            browseBtn.addEventListener('click', function() {
+                fileInput.click();
+            });
+            
+            // Handle file input change
+            fileInput.addEventListener('change', function() {
+                handleFiles(fileInput.files);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            function highlight() {
+                dropArea.classList.add('highlight');
+            }
+            
+            function unhighlight() {
+                dropArea.classList.remove('highlight');
+            }
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }
+            
+            function handleFiles(files) {
+                // Add to array of selected files
+                files = [...files];
+                files.forEach(function(file) {
+                    // Only add CSV files
+                    if (file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv')) {
+                        // Check if file is already selected
+                        if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                            selectedFiles.push(file);
+                        }
+                    }
+                });
+                
+                updateFileList();
+                updateUploadButton();
+            }
+            
+            function updateFileList() {
+                fileList.innerHTML = '';
+                selectedFiles.forEach(function(file, index) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <span>${file.name} (${formatFileSize(file.size)})</span>
+                        <span class="file-remove" data-index="${index}">×</span>
+                    `;
+                    fileList.appendChild(li);
+                });
+                
+                // Add event listeners to remove buttons
+                document.querySelectorAll('.file-remove').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const index = parseInt(this.getAttribute('data-index'));
+                        selectedFiles.splice(index, 1);
+                        updateFileList();
+                        updateUploadButton();
+                    });
+                });
+            }
+            
+            function updateUploadButton() {
+                uploadBtn.disabled = selectedFiles.length === 0;
+            }
+            
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' bytes';
+                else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+                else return (bytes / 1048576).toFixed(1) + ' MB';
+            }
+            
+            // Handle form submission
+            document.getElementById('upload-form').addEventListener('submit', function(e) {
+                if (selectedFiles.length === 0) {
+                    e.preventDefault();
+                    return;
+                }
+                
+                const formData = new FormData();
+                selectedFiles.forEach(file => {
+                    formData.append('files[]', file);
+                });
+                
+                // Update the form's data
+                fileInput.files = fileListToFileArray(selectedFiles);
+            });
+            
+            // Helper to convert file list to array for form submit
+            function fileListToFileArray(fileList) {
+                const dataTransfer = new DataTransfer();
+                fileList.forEach(file => {
+                    dataTransfer.items.add(file);
+                });
+                return dataTransfer.files;
+            }
+        });
+    </script>
+</body>
+</html>
