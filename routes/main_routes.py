@@ -1,11 +1,12 @@
 import os
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file
 from config import logger, UPLOAD_FOLDER
 from utils.file_utils import allowed_file, generate_unique_filename
 from services.file_service import process_uploaded_file, prepare_data_for_forecast, calculate_budget_data
 from services.forecast_service import generate_forecast
 from utils.date_utils import convert_column_to_datetime
 from datetime import datetime
+from utils.export_utils import save_forecast_data, load_forecast_data, generate_forecast_csv_from_file
 
 main = Blueprint('main', __name__)
 
@@ -184,13 +185,28 @@ def process():
         
         # Clean up the file
         os.remove(file_path)
+        
+        # Save forecast data to temp file and get ID instead of storing in session
+        forecast_id = save_forecast_data(
+            results, 
+            forecast_title, 
+            platform_display, 
+            estimated_budget, 
+            currency, 
+            date_range
+        )
+        
+        # Only store the forecast ID in session
+        session['forecast_id'] = forecast_id
+        
+        # Clean up upload-related session variables
         session.pop('uploaded_file', None)
         session.pop('original_filename', None)
         session.pop('detected_date_format', None)
         session.pop('file_format', None)
         session.pop('selected_date_col', None)
-        session.pop('last_date', None)  # Clean up last date from session
-        session.pop('budget_data', None)  # Clean up budget data from session
+        session.pop('last_date', None)
+        session.pop('budget_data', None)
         
         # Pass all forecast metadata to the template
         return render_template('results.html', 
@@ -199,7 +215,8 @@ def process():
                               platform=platform_display,
                               budget=estimated_budget,
                               currency=currency,
-                              date_range=date_range)
+                              date_range=date_range,
+                              forecast_id=forecast_id)  # Pass forecast ID to template
     
     except Exception as e:
         error_message = f'Error processing file: {str(e)}'
@@ -208,11 +225,42 @@ def process():
         # Clean up the file
         if os.path.exists(file_path):
             os.remove(file_path)
+        # Clean up all session data on error
         session.pop('uploaded_file', None)
         session.pop('original_filename', None)
         session.pop('detected_date_format', None)
         session.pop('file_format', None)
         session.pop('selected_date_col', None)
-        session.pop('last_date', None)  # Clean up last date from session
-        session.pop('budget_data', None)  # Clean up budget data from session
+        session.pop('last_date', None)
+        session.pop('budget_data', None)
+        session.pop('forecast_id', None)
         return redirect(url_for('main.index'))
+    
+@main.route('/download_forecast/<forecast_id>')
+def download_forecast(forecast_id):
+    """Generate and download forecast results as CSV using stored forecast ID."""
+    # Load forecast data from temp file
+    forecast_data = load_forecast_data(forecast_id)
+    
+    if not forecast_data:
+        flash('No forecast data available for download. Please generate a forecast first.')
+        return redirect(url_for('main.index'))
+    
+    # Generate CSV file
+    csv_data = generate_forecast_csv_from_file(forecast_id)
+    
+    if not csv_data:
+        flash('Error generating CSV file.')
+        return redirect(url_for('main.index'))
+    
+    # Create a safe filename
+    forecast_title = forecast_data['metadata']['forecast_title']
+    safe_filename = forecast_title.replace(' ', '_').replace('/', '-')
+    
+    # Return the CSV file as a download
+    return send_file(
+        csv_data,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f"{safe_filename}_forecast.csv"
+    )

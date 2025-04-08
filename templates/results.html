@@ -20,9 +20,17 @@
             </div>
         </div>
     </div>
-
     <div class="container results-container">
-        <a href="{{ url_for('main.index') }}" class="btn back-btn">Back to Upload</a>
+        <!-- Action buttons container -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <a href="{{ url_for('main.index') }}" class="btn back-btn">Back to Upload</a>
+            
+            <!-- Add this line to the existing form -->
+            <a href="{{ url_for('main.download_forecast', forecast_id=forecast_id) }}" 
+                class="btn" style="background-color: #28a745; max-width: 250px;">
+                Download Forecast as CSV
+            </a>
+        </div>
         
         {% if results %}
             {% for metric, result in results.items() %}
