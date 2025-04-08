@@ -118,14 +118,42 @@ def process():
     forecast_period = int(request.form.get('forecast_period', 30))
     date_format = request.form.get('date_format', session.get('detected_date_format', 'auto'))
     
-    # Get estimated budget
-    estimated_budget = request.form.get('estimated_budget', 0)
+    # Get forecast title
+    forecast_title = request.form.get('forecast_title', 'Forecast')
+    
+    # Get estimated budget and convert to float for formatting
+    try:
+        estimated_budget = float(request.form.get('estimated_budget', 0))
+    except ValueError:
+        estimated_budget = 0
     logger.info(f"Estimated budget for campaign: {estimated_budget}")
     
-    # Also get the campaign end date if provided
+    # Get currency from budget_data in session
+    budget_data = session.get('budget_data', {})
+    currency = budget_data.get('currency', '£')
+    
+    # Get campaign end date if provided
     campaign_end_date = request.form.get('campaign_end_date')
     if campaign_end_date:
         logger.info(f"Campaign end date received: {campaign_end_date}")
+    
+    # Calculate date range
+    last_date_str = session.get('last_date')
+    start_date = datetime.strptime(last_date_str, '%Y-%m-%d') if last_date_str else datetime.today()
+    end_date = datetime.strptime(campaign_end_date, '%Y-%m-%d') if campaign_end_date else start_date
+    date_range = f"{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}"
+    
+    # Get platform info
+    file_format = session.get('file_format', {})
+    platform_source = file_format.get('source', 'unknown')
+    
+    # Map source to display name
+    platform_display = {
+        'google_ads': 'Google Ads',
+        'meta': 'Meta Ads', 
+        'amazon': 'Amazon Ads',
+        'unknown': 'Unknown Platform'
+    }.get(platform_source, 'Unknown Platform')
     
     # Use the date column that was automatically selected
     date_col = session.get('selected_date_col')
@@ -164,7 +192,14 @@ def process():
         session.pop('last_date', None)  # Clean up last date from session
         session.pop('budget_data', None)  # Clean up budget data from session
         
-        return render_template('results.html', results=results)
+        # Pass all forecast metadata to the template
+        return render_template('results.html', 
+                              results=results,
+                              forecast_title=forecast_title,
+                              platform=platform_display,
+                              budget=estimated_budget,
+                              currency=currency,
+                              date_range=date_range)
     
     except Exception as e:
         error_message = f'Error processing file: {str(e)}'

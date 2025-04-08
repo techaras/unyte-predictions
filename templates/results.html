@@ -3,13 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Forecast Results - Unyte Predictions</title>
+    <title>{{ forecast_title }} - Unyte Predictions</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+    <!-- Forecast header section -->
+    <div style="background-color: #f0f0f8; padding: 20px 0; margin-bottom: 30px;">
+        <div class="container">
+            <h1 style="font-size: 36px; margin-bottom: 10px; text-align: left;">{{ forecast_title }}</h1>
+            <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
+                <div style="background-color: white; padding: 5px 15px; border-radius: 20px;">
+                    {{ platform }}
+                </div>
+                <div>{{ currency }}{{ budget|int }}</div>
+                <div>{{ date_range }}</div>
+            </div>
+        </div>
+    </div>
+
     <div class="container results-container">
-        <h1>Forecast Results</h1>
-        
         <a href="{{ url_for('main.index') }}" class="btn back-btn">Back to Upload</a>
         
         {% if results %}
