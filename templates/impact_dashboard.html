@@ -253,6 +253,34 @@
             align-items: center;
             font-weight: 600;
         }
+
+        .total-budget-value-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .total-budget-value-container .currency-symbol {
+            position: static;
+            margin-right: 2px;
+        }
+        
+        #total-budget-display {
+            font-weight: 600;
+            cursor: pointer;
+            padding: 4px 8px;
+            transition: background-color 0.2s;
+            border-radius: 4px;
+        }
+        
+        #total-budget-display:hover {
+            background-color: #f0f4f8;
+        }
+        
+        #total-budget-input {
+            margin-left: 4px;
+            width: 120px;
+        }
     </style>
 </head>
 <body>
@@ -282,8 +310,14 @@
         
         <div class="total-budget">
             <span>Total Budget:</span>
-            <span id="total-budget-value">${{ '%.2f'|format(impact_data.total_budget|float) }}</span>
-        </div>
+            <div id="total-budget-value" class="total-budget-value-container">
+                <span class="currency-symbol">$</span>
+                <span id="total-budget-display">{{ '%.2f'|format(impact_data.total_budget|float) }}</span>
+                <input type="text" id="total-budget-input" class="budget-input" 
+                       value="{{ '%.2f'|format(impact_data.total_budget|float) }}" 
+                       style="display: none;">
+            </div>
+        </div>        
         
         <table class="simulator-table">
             <thead>
@@ -431,7 +465,18 @@
             // Function to update total budget display
             function updateTotalBudgetDisplay() {
                 const totalBudget = impactData.forecasts.reduce((sum, forecast) => sum + forecast.budget, 0);
-                document.getElementById('total-budget-value').textContent = formatCurrency(totalBudget);
+                
+                // Update the display element
+                const totalBudgetDisplay = document.getElementById('total-budget-display');
+                if (totalBudgetDisplay) {
+                    totalBudgetDisplay.textContent = formatCurrency(totalBudget).substring(1); // Remove $ as it's shown separately
+                }
+                
+                // Update the input value but only if it's not currently being edited
+                const totalBudgetInput = document.getElementById('total-budget-input');
+                if (totalBudgetInput && totalBudgetInput.style.display === 'none') {
+                    totalBudgetInput.value = totalBudget.toFixed(2);
+                }
             }
             
             // Function to update metric displays
@@ -500,6 +545,114 @@
                     console.error('Error simulating budget changes:', error);
                     alert('Failed to simulate budget changes. Please try again.');
                 }
+            }
+            
+            // Set up total budget editing
+            const totalBudgetValueElement = document.getElementById('total-budget-value');
+            if (totalBudgetValueElement) {
+                // Get the current total budget value
+                const currentTotalBudget = parseCurrency(totalBudgetValueElement.textContent);
+                
+                // Replace with editable structure
+                totalBudgetValueElement.innerHTML = `
+                    <div class="total-budget-value-container">
+                        <span class="currency-symbol">$</span>
+                        <span id="total-budget-display">${formatCurrency(currentTotalBudget).substring(1)}</span>
+                        <input type="text" id="total-budget-input" class="budget-input" 
+                            value="${currentTotalBudget.toFixed(2)}" style="display: none;">
+                    </div>
+                `;
+                
+                // Add styling for the total budget editing
+                const style = document.createElement('style');
+                style.textContent = `
+                    .total-budget-value-container {
+                        position: relative;
+                        display: flex;
+                        align-items: center;
+                    }
+                    
+                    .total-budget-value-container .currency-symbol {
+                        position: static;
+                        margin-right: 2px;
+                    }
+                    
+                    #total-budget-display {
+                        font-weight: 600;
+                        cursor: pointer;
+                        padding: 4px 8px;
+                        transition: background-color 0.2s;
+                        border-radius: 4px;
+                    }
+                    
+                    #total-budget-display:hover {
+                        background-color: #f0f4f8;
+                    }
+                    
+                    #total-budget-input {
+                        margin-left: 4px;
+                        width: 120px;
+                    }
+                `;
+                document.head.appendChild(style);
+                
+                const totalBudgetDisplay = document.getElementById('total-budget-display');
+                const totalBudgetInput = document.getElementById('total-budget-input');
+                
+                // Make the display clickable to reveal the input
+                totalBudgetDisplay.addEventListener('click', function() {
+                    totalBudgetDisplay.style.display = 'none';
+                    totalBudgetInput.style.display = 'inline-block';
+                    totalBudgetInput.focus();
+                    totalBudgetInput.select();
+                });
+                
+                // Handle input blur to update values
+                totalBudgetInput.addEventListener('blur', function() {
+                    // Hide input, show display
+                    totalBudgetInput.style.display = 'none';
+                    totalBudgetDisplay.style.display = 'inline-block';
+                    
+                    // Get the new total budget value
+                    const newTotalBudget = parseCurrency(totalBudgetInput.value);
+                    totalBudgetDisplay.textContent = formatCurrency(newTotalBudget).substring(1); // Remove $ as it's shown separately
+                    
+                    // Calculate current total budget
+                    const currentTotalBudget = impactData.forecasts.reduce((sum, forecast) => sum + forecast.budget, 0);
+                    
+                    // Skip if no change or invalid value
+                    if (newTotalBudget === currentTotalBudget || newTotalBudget <= 0) {
+                        return;
+                    }
+                    
+                    // Calculate adjustment factor
+                    const adjustmentFactor = newTotalBudget / currentTotalBudget;
+                    
+                    // Create changes object with percentage changes for all forecasts
+                    const changes = {};
+                    impactData.forecasts.forEach(forecast => {
+                        // Calculate percentage change for each forecast
+                        const changePercent = (forecast.budget * adjustmentFactor - forecast.original_budget) / 
+                                            forecast.original_budget * 100;
+                        changes[forecast.id] = changePercent;
+                        
+                        // Update the slider position
+                        const slider = document.getElementById(`slider-${forecast.id}`);
+                        if (slider) {
+                            slider.value = getSliderValueFromChange(changePercent);
+                        }
+                    });
+                    
+                    // Simulate budget changes
+                    simulateBudgetChanges(changes);
+                });
+                
+                // Handle enter key on total budget input
+                totalBudgetInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        this.blur();
+                    }
+                });
             }
             
             // Convert budget values to editable
