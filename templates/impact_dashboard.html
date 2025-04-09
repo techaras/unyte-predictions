@@ -82,6 +82,47 @@
             font-weight: 600;
             color: #2c3e50;
         }
+
+        .budget-value {
+            position: relative;
+            display: flex;
+            align-items: center;
+            margin-top: 8px;
+        }
+        
+        .currency-symbol {
+            position: absolute;
+            left: 8px;
+            color: #555;
+        }
+        
+        .budget-display {
+            cursor: pointer;
+            padding: 4px 0;
+            transition: background-color 0.2s;
+            font-weight: 600;
+        }
+        
+        .budget-display:hover {
+            background-color: #f0f4f8;
+            border-radius: 4px;
+        }
+        
+        .budget-input {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #3498db;
+            border-radius: 4px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: inherit;
+            text-align: right;
+        }
+        
+        .budget-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
         
         .slider-container {
             width: 250px;
@@ -283,7 +324,14 @@
                                                 <span>+100%</span>
                                             </div>
                                         </div>
-                                        <div class="budget-value" id="budget-{{ forecast.id }}">${{ '%.2f'|format(forecast.budget|float) }}</div>
+                                        <!-- Replace the static budget display with an editable input field -->
+                                        <div class="budget-value">
+                                            <input type="text" id="budget-input-{{ forecast.id }}" class="budget-input" 
+                                                value="{{ '%.2f'|format(forecast.budget|float) }}" 
+                                                data-original-value="{{ forecast.budget }}"
+                                                data-forecast-id="{{ forecast.id }}">
+                                            <span class="currency-symbol">$</span>
+                                        </div>
                                     </td>
                                 {% endif %}
                             {% else %}
@@ -305,6 +353,19 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Initial impact data from server
             let impactData = {{ impact_data|tojson }};
+            
+            // Function to format currency with proper formatting
+            function formatCurrency(value) {
+                return '$' + parseFloat(value).toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+            
+            // Function to parse currency string to number
+            function parseCurrency(value) {
+                return parseFloat(value.replace(/[^0-9.-]+/g, '')) || 0;
+            }
             
             // Function to update date range display
             function updateDateRangeDisplay() {
@@ -350,18 +411,27 @@
                 }
             }
             
+            // Function to convert from business logic scale (-50% to +100%) to slider scale (-100% to +100%)
+            function getSliderValueFromChange(changePercent) {
+                if (changePercent >= 0) {
+                    return changePercent; // Positive values map directly
+                } else {
+                    return changePercent * 2; // Scale -50% to -100% for slider
+                }
+            }
+            
             // Function to update displayed budget
             function updateBudgetDisplay(forecastId, newBudget) {
                 const budgetElement = document.getElementById(`budget-${forecastId}`);
                 if (budgetElement) {
-                    budgetElement.textContent = `$${newBudget.toFixed(2)}`;
+                    budgetElement.innerHTML = formatCurrency(newBudget);
                 }
             }
             
             // Function to update total budget display
             function updateTotalBudgetDisplay() {
                 const totalBudget = impactData.forecasts.reduce((sum, forecast) => sum + forecast.budget, 0);
-                document.getElementById('total-budget-value').textContent = `$${totalBudget.toFixed(2)}`;
+                document.getElementById('total-budget-value').textContent = formatCurrency(totalBudget);
             }
             
             // Function to update metric displays
@@ -429,6 +499,88 @@
                 } catch (error) {
                     console.error('Error simulating budget changes:', error);
                     alert('Failed to simulate budget changes. Please try again.');
+                }
+            }
+            
+            // Convert budget values to editable
+            document.querySelectorAll('.budget-value').forEach(budgetValueEl => {
+                const forecastId = budgetValueEl.id.replace('budget-', '');
+                const forecast = impactData.forecasts.find(f => f.id === forecastId);
+                
+                if (forecast) {
+                    // Get the current budget display value
+                    const currentText = budgetValueEl.textContent.trim();
+                    const currentValue = parseCurrency(currentText);
+                    
+                    // Replace with a better editable structure
+                    budgetValueEl.innerHTML = `
+                        <div class="budget-display" id="budget-display-${forecastId}">${formatCurrency(currentValue)}</div>
+                        <input type="text" class="budget-input" id="budget-input-${forecastId}" 
+                               value="${currentValue.toFixed(2)}" style="display: none;"
+                               data-original="${forecast.original_budget}">
+                    `;
+                    
+                    const displayEl = document.getElementById(`budget-display-${forecastId}`);
+                    const inputEl = document.getElementById(`budget-input-${forecastId}`);
+                    
+                    // Make the display clickable to reveal the input
+                    displayEl.addEventListener('click', function() {
+                        displayEl.style.display = 'none';
+                        inputEl.style.display = 'block';
+                        inputEl.focus();
+                        inputEl.select();
+                    });
+                    
+                    // Handle input blur to update values
+                    inputEl.addEventListener('blur', function() {
+                        // Hide input, show display
+                        inputEl.style.display = 'none';
+                        displayEl.style.display = 'block';
+                        
+                        // Get the new value
+                        const newValue = parseCurrency(inputEl.value);
+                        displayEl.textContent = formatCurrency(newValue);
+                        
+                        // Calculate percentage change
+                        const originalValue = parseFloat(inputEl.getAttribute('data-original'));
+                        const changePercent = ((newValue - originalValue) / originalValue) * 100;
+                        
+                        // Update the slider
+                        const slider = document.getElementById(`slider-${forecastId}`);
+                        if (slider) {
+                            slider.value = getSliderValueFromChange(changePercent);
+                        }
+                        
+                        // Simulate budget changes
+                        const changes = {
+                            [forecastId]: changePercent
+                        };
+                        simulateBudgetChanges(changes);
+                    });
+                    
+                    // Handle enter key
+                    inputEl.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') {
+                            this.blur();
+                        }
+                    });
+                }
+            });
+            
+            // Update the updateBudgetDisplay function to work with our new structure
+            function updateBudgetDisplay(forecastId, newBudget) {
+                const displayEl = document.getElementById(`budget-display-${forecastId}`);
+                const inputEl = document.getElementById(`budget-input-${forecastId}`);
+                
+                if (displayEl) {
+                    displayEl.textContent = formatCurrency(newBudget);
+                }
+                
+                if (inputEl) {
+                    // Update the input value but only if it's not currently being edited
+                    if (inputEl.style.display === 'none') {
+                        inputEl.value = newBudget.toFixed(2);
+                    }
                 }
             }
             
