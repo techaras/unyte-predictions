@@ -123,6 +123,13 @@
             color: #666;
         }
         
+        /* Center label for 0% */
+        .slider-labels span:nth-child(2) {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
         .impact-value {
             font-weight: 600;
         }
@@ -268,9 +275,9 @@
                                 {% if loop.first %}
                                     <td rowspan="{{ forecast.metrics|length }}" class="budget-cell">
                                         <div class="slider-container">
-                                            <input type="range" min="-50" max="100" value="0" class="slider" id="slider-{{ forecast.id }}">
+                                            <input type="range" min="-100" max="100" value="0" class="slider" id="slider-{{ forecast.id }}">
                                             <div class="slider-labels">
-                                                <span>-50%</span>
+                                                <span>-100%</span>
                                                 <span>0%</span>
                                                 <span>+100%</span>
                                             </div>
@@ -297,6 +304,18 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Initial impact data from server
             let impactData = {{ impact_data|tojson }};
+            
+            // Function to convert from slider scale (-100% to +100%) to business logic scale (-50% to +100%)
+            function getAdjustedBudgetChange(sliderValue) {
+                // For positive values (0 to 100), keep as is
+                if (sliderValue >= 0) {
+                    return sliderValue;
+                } else {
+                    // For negative values, scale -100% to -50%
+                    // (multiply by 0.5 to convert -100 to -50)
+                    return sliderValue * 0.5;
+                }
+            }
             
             // Function to update displayed budget
             function updateBudgetDisplay(forecastId, newBudget) {
@@ -385,14 +404,17 @@
                 const forecastId = slider.id.replace('slider-', '');
                 
                 slider.addEventListener('input', function() {
-                    // Get the change percentage from the slider
-                    const changePercent = parseInt(this.value);
+                    // Get the raw value from the slider
+                    const sliderValue = parseInt(this.value);
+                    
+                    // Convert to the business logic range (-50% to +100%)
+                    const adjustedChangePercent = getAdjustedBudgetChange(sliderValue);
                     
                     // Find the forecast in the data
                     const forecast = impactData.forecasts.find(f => f.id === forecastId);
                     if (forecast) {
                         // Calculate new budget based on original budget
-                        const newBudget = forecast.original_budget * (1 + changePercent/100);
+                        const newBudget = forecast.original_budget * (1 + adjustedChangePercent/100);
                         
                         // Update the displayed budget immediately for responsive UI
                         updateBudgetDisplay(forecastId, newBudget);
@@ -401,11 +423,14 @@
                 
                 slider.addEventListener('change', function() {
                     // This fires when the user releases the slider
-                    const changePercent = parseInt(this.value);
+                    const sliderValue = parseInt(this.value);
+                    
+                    // Convert to the business logic range (-50% to +100%)
+                    const adjustedChangePercent = getAdjustedBudgetChange(sliderValue);
                     
                     // Create changes object with just this forecast's change
                     const changes = {
-                        [forecastId]: changePercent
+                        [forecastId]: adjustedChangePercent
                     };
                     
                     // Send to server for simulation
