@@ -359,13 +359,13 @@
                                             </div>
                                         </div>
                                         <!-- Replace the static budget display with an editable input field -->
-                                        <div class="budget-value">
+                                        <div id="budget-{{ forecast.id }}" class="budget-value">
                                             <input type="text" id="budget-input-{{ forecast.id }}" class="budget-input" 
-                                                value="{{ '%.2f'|format(forecast.budget|float) }}" 
-                                                data-original-value="{{ forecast.budget }}"
-                                                data-forecast-id="{{ forecast.id }}">
+                                                   value="{{ '%.2f'|format(forecast.budget|float) }}" 
+                                                   data-original-value="{{ forecast.budget }}"
+                                                   data-forecast-id="{{ forecast.id }}">
                                             <span class="currency-symbol">$</span>
-                                        </div>
+                                        </div>                                        
                                     </td>
                                 {% endif %}
                             {% else %}
