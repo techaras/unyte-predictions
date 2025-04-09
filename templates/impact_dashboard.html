@@ -17,17 +17,18 @@
             margin-bottom: 20px;
         }
         
-        .time-period {
+        .forecast-period {
             display: flex;
             align-items: center;
             gap: 10px;
         }
         
-        .time-period select {
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 1px solid #ddd;
-            background-color: white;
+        .date-range-display {
+            padding: 5px 12px;
+            background-color: #f0f4f8;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #34495e;
         }
         
         .simulator-table {
@@ -217,13 +218,13 @@
     <div class="container">
         <div class="header-container">
             <h1>Impact Analysis Simulator</h1>
-            <div class="time-period">
-                <span>Time Period:</span>
-                <select id="time-period-select">
-                    <option value="30">Last 30 days</option>
-                    <option value="60">Last 60 days</option>
-                    <option value="90">Last 90 days</option>
-                </select>
+            <!-- Replace the time-period div with this -->
+            <div class="forecast-period">
+                <span>Forecast Period:</span>
+                <div class="date-range-display">
+                    <span id="date-range-text">Loading date range...</span>
+                </div>
+            </div>
             </div>
         </div>
         
@@ -304,6 +305,38 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Initial impact data from server
             let impactData = {{ impact_data|tojson }};
+            
+            // Function to update date range display
+            function updateDateRangeDisplay() {
+                const dateRangeElement = document.getElementById('date-range-text');
+                if (!dateRangeElement) return;
+                
+                // Get date range from the impact data
+                let startDate = new Date();
+                let endDate = new Date();
+                endDate.setDate(startDate.getDate() + 90); // Default 90-day window
+                
+                // Try to get the date range from the impact data
+                if (impactData.date_range) {
+                    startDate = new Date(impactData.date_range.start);
+                    endDate = new Date(impactData.date_range.end);
+                } else if (impactData.forecasts && impactData.forecasts.length > 0) {
+                    // Try to get from the first forecast as fallback
+                    const firstForecast = impactData.forecasts[0];
+                    if (firstForecast.date_range) {
+                        startDate = new Date(firstForecast.date_range.start);
+                        endDate = new Date(firstForecast.date_range.end);
+                    }
+                }
+                
+                // Format dates
+                const formatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+                const startFormatted = startDate.toLocaleDateString('en-US', formatOptions);
+                const endFormatted = endDate.toLocaleDateString('en-US', formatOptions);
+                
+                // Update the text
+                dateRangeElement.textContent = `${startFormatted} - ${endFormatted}`;
+            }
             
             // Function to convert from slider scale (-100% to +100%) to business logic scale (-50% to +100%)
             function getAdjustedBudgetChange(sliderValue) {
@@ -469,6 +502,9 @@
                     console.error('Error during cleanup:', error);
                 }
             });
+            
+            // Initialize date range display on page load
+            updateDateRangeDisplay();
         });
     </script>
 </body>

@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from config import logger
 from services.file_service import detect_file_format
+from datetime import datetime, timedelta
 import json
 import csv
 
@@ -39,6 +40,17 @@ def process_impact_files(uploaded_files):
                 # Extract metrics from the data portion
                 metrics = extract_metrics_from_forecast_data(data_df)
                 
+                # Extract date range from metadata
+                start_date = datetime.now().strftime('%Y-%m-%d')
+                forecast_days = 90  # Default to 90 days forecast
+                end_date = (datetime.now() + timedelta(days=forecast_days)).strftime('%Y-%m-%d')
+                
+                # Try to get date range from metadata
+                if 'start_date' in metadata:
+                    start_date = metadata.get('start_date', start_date)
+                if 'end_date' in metadata:
+                    end_date = metadata.get('end_date', end_date)
+                
                 logger.info(f"Successfully parsed forecast CSV: {forecast_title}, Platform: {platform}, Budget: {budget}")
             else:
                 # Fall back to regular CSV parsing
@@ -66,6 +78,31 @@ def process_impact_files(uploaded_files):
                 # Generate forecast ID and title
                 forecast_id = f"ForecastName {index + 1}"
                 forecast_title = forecast_id
+                
+                # Set default date range
+                start_date = datetime.now().strftime('%Y-%m-%d')
+                forecast_days = 90  # Default to 90 days forecast
+                end_date = (datetime.now() + timedelta(days=forecast_days)).strftime('%Y-%m-%d')
+                
+                # Try to extract date range from data
+                if file_format['date_columns'] and not df.empty:
+                    # If this is a regular CSV, try to extract dates from the data
+                    date_col = file_format['date_columns'][0]
+                    if date_col in df.columns:
+                        # Get date range
+                        df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+                        last_date = df[date_col].max()
+                        if pd.notna(last_date):
+                            start_date = last_date.strftime('%Y-%m-%d')
+                            end_date = (last_date + timedelta(days=forecast_days)).strftime('%Y-%m-%d')
+            
+            # Calculate days between start and end date
+            try:
+                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                forecast_days = (end_dt - start_dt).days
+            except:
+                forecast_days = 90  # Fallback if date parsing fails
             
             # Add to total budget
             impact_data['total_budget'] += budget
@@ -78,7 +115,12 @@ def process_impact_files(uploaded_files):
                 'campaign': campaign,
                 'metrics': metrics,
                 'budget': budget,
-                'original_budget': budget  # Keep track of original budget for reset
+                'original_budget': budget,  # Keep track of original budget for reset
+                'date_range': {
+                    'start': start_date,
+                    'end': end_date,
+                    'days': forecast_days
+                }
             }
             
             impact_data['forecasts'].append(forecast_entry)
@@ -92,6 +134,21 @@ def process_impact_files(uploaded_files):
         for metric in forecast['metrics']:
             metric['simulated'] = metric['current']
             metric['impact'] = 0.0
+    
+    # Extract overall date range (using the first forecast's range as default)
+    if impact_data['forecasts']:
+        first_forecast = impact_data['forecasts'][0]
+        if 'date_range' in first_forecast:
+            impact_data['date_range'] = first_forecast['date_range']
+        else:
+            # Fallback date range
+            start_date = datetime.now().strftime('%Y-%m-%d')
+            end_date = (datetime.now() + timedelta(days=90)).strftime('%Y-%m-%d')
+            impact_data['date_range'] = {
+                'start': start_date,
+                'end': end_date,
+                'days': 90
+            }
     
     logger.info(f"Processed {len(impact_data['forecasts'])} forecasts with total budget: {impact_data['total_budget']}")
     return impact_data
