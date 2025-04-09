@@ -661,9 +661,9 @@
                 const forecast = impactData.forecasts.find(f => f.id === forecastId);
                 
                 if (forecast) {
-                    // Get the current budget display value
-                    const currentText = budgetValueEl.textContent.trim();
-                    const currentValue = parseCurrency(currentText);
+                    // Get the current budget value from the input
+                    const inputElement = budgetValueEl.querySelector('input');
+                    const currentValue = parseFloat(inputElement.value) || 0;
                     
                     // Replace with a better editable structure
                     budgetValueEl.innerHTML = `
