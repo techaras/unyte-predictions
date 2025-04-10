@@ -43,23 +43,14 @@ function updateDateRangeDisplay(impactData) {
     dateRangeElement.textContent = `${startFormatted} - ${endFormatted}`;
 }
 
-// Function to convert from slider scale (-100% to +100%) to business logic scale (-50% to +100%)
+// Function to convert from slider scale (-100% to +100%) to business logic scale (-100% to +100%)
 function getAdjustedBudgetChange(sliderValue) {
-    // For positive values (0 to 100), keep as is
-    if (sliderValue >= 0) {
-        return sliderValue;
-    } else {
-        // For negative values, scale -100% to -50%
-        // (multiply by 0.5 to convert -100 to -50)
-        return sliderValue * 0.5;
-    }
+    // Direct 1:1 mapping with no scaling
+    return sliderValue;
 }
 
-// Function to convert from business logic scale (-50% to +100%) to slider scale (-100% to +100%)
+// Function to convert from business logic scale (-100% to +100%) to slider scale (-100% to +100%)
 function getSliderValueFromChange(changePercent) {
-    if (changePercent >= 0) {
-        return changePercent; // Positive values map directly
-    } else {
-        return changePercent * 2; // Scale -50% to -100% for slider
-    }
+    // Direct 1:1 mapping with no scaling
+    return changePercent;
 }

@@ -60,8 +60,8 @@ function distributeBudgetChange(impactData, changedForecastId, budgetDelta) {
         // Calculate this forecast's share of the delta
         const forecastDelta = deltaToDistribute * proportion;
         
-        // Calculate new budget (ensuring it doesn't go below a minimum value)
-        let newBudget = Math.max(forecast.budget + forecastDelta, forecast.original_budget * 0.1);
+        // Calculate new budget (allowing it to go to 0)
+        let newBudget = Math.max(forecast.budget + forecastDelta, 0);
         
         // Update budget display
         updateBudgetDisplay(forecast.id, newBudget);

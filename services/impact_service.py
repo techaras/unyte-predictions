@@ -566,16 +566,22 @@ def calculate_impact(original_value, budget_change_percent):
     
     Args:
         original_value: Original metric value
-        budget_change_percent: Percentage change in budget (-50 to +100)
+        budget_change_percent: Percentage change in budget (-100 to +100)
         
     Returns:
         tuple: (new_value, impact_percent)
     """
     # Simplified elasticity model
-    # Different elasticity for different ranges
     if budget_change_percent < 0:
-        # Negative changes have less impact
-        elasticity = 0.7
+        if budget_change_percent <= -90:
+            # Near-complete budget reduction (very high negative elasticity)
+            elasticity = 0.95
+        elif budget_change_percent <= -75:
+            # Significant budget reduction
+            elasticity = 0.85
+        else:
+            # Moderate budget reduction
+            elasticity = 0.7
     else:
         # Positive changes have diminishing returns
         elasticity = 0.9 if budget_change_percent <= 50 else 0.8
@@ -624,7 +630,13 @@ def simulate_budget_change(impact_data, budget_changes):
                         new_value = metric['current'] * decrease_factor
                     else:
                         # Potential improvement with budget decreases (more selective spending)
-                        improvement_factor = 1 - (change_percent/100) * 0.05
+                        # For extreme budget reductions (>90%), ROAS becomes less predictable
+                        if change_percent <= -90:
+                            # Very high reduction can lead to unpredictable ROAS
+                            variation = (np.random.random() - 0.5) * 0.4  # +/- 20% random variation
+                            improvement_factor = 1 - (change_percent/100) * (0.05 + variation)
+                        else:
+                            improvement_factor = 1 - (change_percent/100) * 0.05
                         new_value = metric['current'] * improvement_factor
                     
                     impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
