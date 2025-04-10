@@ -1,0 +1,10 @@
+<div class="nav-tabs">
+    <a href="{{ url_for('main.index') }}" class="nav-tab">Forecast</a>
+    <a href="{{ url_for('impact.index') }}" class="nav-tab">Impact Upload</a>
+    <a href="{{ url_for('impact.dashboard') }}" class="nav-tab active">Impact Dashboard</a>
+</div>
+
+<div class="action-buttons">
+    <a href="{{ url_for('impact.index') }}" class="btn back-btn">Back to Upload</a>
+    <button id="reset-btn" class="btn reset-btn">Reset Simulations</button>        
+</div>
