@@ -37,8 +37,8 @@ def process_impact_files(uploaded_files):
                 budget = float(metadata.get('budget', 5000))
                 campaign = extract_campaign_name_from_metadata(metadata, file_info['original_name'])
                 
-                # Extract metrics from the data portion
-                metrics = extract_metrics_from_forecast_data(data_df)
+                # Extract ALL metrics from the data portion
+                metrics = extract_all_metrics_from_forecast_data(data_df)
                 
                 # Extract date range from metadata
                 start_date = datetime.now().strftime('%Y-%m-%d')
@@ -69,8 +69,8 @@ def process_impact_files(uploaded_files):
                 # Extract campaign name if available
                 campaign = extract_campaign_name(df, file_info['original_name'])
                 
-                # Extract key metrics
-                metrics = extract_metrics(df)
+                # Extract ALL metrics
+                metrics = extract_all_metrics(df)
                 
                 # Extract budget
                 budget = extract_budget(df)
@@ -265,9 +265,9 @@ def extract_campaign_name_from_metadata(metadata, filename):
     # Default if nothing else works
     return 'All Campaigns'
 
-def extract_metrics_from_forecast_data(df):
+def extract_all_metrics_from_forecast_data(df):
     """
-    Extract metrics from forecast data dataframe.
+    Extract ALL numeric metrics from forecast data dataframe.
     
     Args:
         df: DataFrame containing forecast data
@@ -277,67 +277,236 @@ def extract_metrics_from_forecast_data(df):
     """
     metrics = []
     
-    # Get unique metrics excluding date and metric_type columns
-    metric_columns = [col for col in df.columns if col.lower() not in ['date', 'metric_type']]
+    # Skip these columns as they're not metrics
+    non_metric_columns = ['date', 'metric_type', 'date_range', 'segment', 'campaign']
     
-    # Default metrics we want to extract or calculate
-    wanted_metrics = {
-        'clicks': 'Clicks',
-        'conversions': 'Conversions',
-        'roas': 'ROAS'
-    }
+    # Get all columns that could be metrics
+    potential_metric_columns = [col for col in df.columns 
+                              if col.lower() not in non_metric_columns]
     
-    results = {}
-    
-    # Process each available metric column
-    for col in metric_columns:
-        col_lower = col.lower()
-        
-        # Determine which metric type this column represents
-        metric_type = None
-        if any(term in col_lower for term in ['click', 'clic']):
-            metric_type = 'clicks'
-        elif any(term in col_lower for term in ['conv', 'purchase', 'acquisition']):
-            metric_type = 'conversions'
-        elif any(term in col_lower for term in ['roas', 'return', 'roi']):
-            metric_type = 'roas'
-        
-        if metric_type:
-            try:
-                # Get the forecasted value (typically the last row)
-                value = df[col].iloc[-1] if not df.empty else 0
+    # Determine if each column has numeric data and extract it
+    for col in potential_metric_columns:
+        try:
+            # Skip columns with mostly non-numeric data
+            numeric_count = pd.to_numeric(df[col], errors='coerce').notna().sum()
+            if numeric_count < len(df) * 0.5:  # If less than 50% are numeric, skip
+                continue
                 
-                if isinstance(value, str) and ',' in value:
-                    # Handle comma-separated thousands
-                    value = float(value.replace(',', ''))
-                else:
+            # Get the forecasted value (typically the last row)
+            value = df[col].iloc[-1] if not df.empty else 0
+            
+            if isinstance(value, str) and ',' in value:
+                # Handle comma-separated thousands
+                value = float(value.replace(',', ''))
+            else:
+                try:
                     value = float(value)
-                
-                # Store the highest value if multiple columns map to the same metric
-                if metric_type not in results or value > results[metric_type]:
-                    results[metric_type] = value
-            except Exception as e:
-                logger.warning(f"Error extracting metric {col}: {str(e)}")
+                except:
+                    continue  # Skip if not convertible to float
+            
+            # Format the display name
+            display_name = format_metric_name(col)
+            
+            # Format the value appropriately based on metric type
+            formatted_value = format_metric_value(display_name, value)
+            
+            metrics.append({
+                'name': display_name,
+                'current': formatted_value,
+                'simulated': formatted_value,
+                'impact': 0.0
+            })
+        except Exception as e:
+            logger.warning(f"Error processing metric column {col}: {str(e)}")
     
-    # Create the metrics list with standardized names
-    for metric_key, display_name in wanted_metrics.items():
-        value = results.get(metric_key, 0)
-        
-        if metric_key == 'clicks':
-            value = round(value)
-        elif metric_key == 'conversions':
-            value = round(value)
-        elif metric_key == 'roas':
-            value = round(value, 1)
-        
-        metrics.append({
-            'name': display_name,
-            'current': value,
-            'simulated': value,
-            'impact': 0.0
-        })
+    # If no metrics were extracted, provide the standard three as fallback
+    if not metrics:
+        metrics = generate_default_metrics()
     
     return metrics
+
+def extract_all_metrics(df):
+    """
+    Extract ALL numeric metrics from the dataframe.
+    
+    Args:
+        df: DataFrame containing the data
+        
+    Returns:
+        list: List of metric dictionaries
+    """
+    metrics = []
+    
+    # Skip these columns as they're not metrics
+    non_metric_columns = ['date', 'campaign', 'ad_group', 'ad', 'keyword', 'platform', 
+                        'source', 'medium', 'device', 'country', 'region', 'city']
+    
+    # Identify potential metric columns (numeric or percentage columns)
+    potential_metric_columns = []
+    
+    for col in df.columns:
+        if col.lower() in [c.lower() for c in non_metric_columns]:
+            continue
+            
+        # Check if column contains primarily numeric data
+        try:
+            numeric_values = pd.to_numeric(df[col], errors='coerce')
+            if numeric_values.notna().sum() > len(df) * 0.5:  # If >50% are numeric
+                potential_metric_columns.append(col)
+        except:
+            continue
+    
+    # Process each metric column
+    for col in potential_metric_columns:
+        try:
+            # Calculate a sensible value from the column
+            values = pd.to_numeric(df[col], errors='coerce')
+            
+            # Determine if this is a rate/percentage metric
+            is_percentage = False
+            if '%' in col or 'rate' in col.lower() or 'ratio' in col.lower() or 'roas' in col.lower():
+                is_percentage = True
+            
+            # Get an appropriate value (sum or average)
+            if is_percentage:
+                value = values.mean()  # Use average for rates
+            else:
+                value = values.sum()  # Use sum for counts
+            
+            # Skip if value is NaN or too small
+            if pd.isna(value) or abs(value) < 0.00001:
+                continue
+                
+            # Format the display name
+            display_name = format_metric_name(col)
+            
+            # Format the value appropriately
+            formatted_value = format_metric_value(display_name, value)
+            
+            metrics.append({
+                'name': display_name,
+                'current': formatted_value,
+                'simulated': formatted_value,
+                'impact': 0.0
+            })
+        except Exception as e:
+            logger.warning(f"Error extracting metric {col}: {str(e)}")
+    
+    # If no metrics were extracted, provide default ones
+    if not metrics:
+        metrics = generate_default_metrics()
+    
+    return metrics
+
+def format_metric_name(column_name):
+    """
+    Format a column name into a user-friendly metric name.
+    
+    Args:
+        column_name: Original column name
+        
+    Returns:
+        str: Formatted metric name
+    """
+    # Remove common prefixes/suffixes
+    name = column_name.replace('_', ' ').strip()
+    
+    # Handle special cases
+    name_lower = name.lower()
+    if 'roas' in name_lower:
+        return 'ROAS'
+    elif 'ctr' in name_lower and 'ctr' == name_lower:
+        return 'CTR'
+    elif 'cpm' in name_lower and 'cpm' == name_lower:
+        return 'CPM'
+    elif 'cpc' in name_lower and 'cpc' == name_lower:
+        return 'CPC'
+    elif 'cpa' in name_lower and 'cpa' == name_lower:
+        return 'CPA'
+    elif 'conv' in name_lower and 'rate' in name_lower:
+        return 'Conversion Rate'
+    elif 'conv' in name_lower and 'value' in name_lower:
+        return 'Conversion Value'
+    elif any(term in name_lower for term in ['conv', 'conversion', 'purchase']):
+        return 'Conversions'
+    elif any(term in name_lower for term in ['click', 'clic']):
+        return 'Clicks'
+    elif 'impr' in name_lower or 'impression' in name_lower:
+        return 'Impressions'
+    elif 'cost' in name_lower or 'spend' in name_lower:
+        return 'Cost'
+    elif 'revenue' in name_lower:
+        return 'Revenue'
+    elif 'roi' in name_lower:
+        return 'ROI'
+    
+    # Capitalize words for other metrics
+    words = name.split()
+    return ' '.join(word.capitalize() for word in words)
+
+def format_metric_value(metric_name, value):
+    """
+    Format the metric value appropriately based on metric type.
+    
+    Args:
+        metric_name: Name of the metric
+        value: Raw numeric value
+        
+    Returns:
+        Formatted value (could be float or int)
+    """
+    metric_lower = metric_name.lower()
+    
+    # Determine formatting by metric type
+    if any(term in metric_lower for term in ['rate', 'ctr', 'percentage']):
+        # Percentage metrics - round to 2 decimal places
+        return round(value, 2)
+    elif any(term in metric_lower for term in ['roas', 'roi', 'cpc', 'cpm', 'cpa', 'cost per']):
+        # Financial ratios - round to 1 decimal place
+        return round(value, 1)
+    elif any(term in metric_lower for term in ['revenue', 'cost', 'spend', 'value']):
+        # Currency values - round to 2 decimal places
+        return round(value, 2)
+    elif any(term in metric_lower for term in ['conversion', 'click', 'impression', 'view']):
+        # Count metrics - round to integers
+        return round(value)
+    else:
+        # Default case - use intelligent rounding
+        abs_value = abs(value)
+        if abs_value >= 1000:
+            return round(value)  # For large numbers, use integers
+        elif abs_value >= 10:
+            return round(value, 1)  # For medium numbers, 1 decimal place
+        else:
+            return round(value, 2)  # For small numbers, 2 decimal places
+
+def generate_default_metrics():
+    """
+    Generate a set of default metrics if no metrics can be extracted.
+    
+    Returns:
+        list: List of default metric dictionaries
+    """
+    return [
+        {
+            'name': 'Clicks',
+            'current': round(np.random.uniform(800, 12000)),
+            'simulated': 0,
+            'impact': 0.0
+        },
+        {
+            'name': 'Conversions',
+            'current': round(np.random.uniform(50, 800)),
+            'simulated': 0,
+            'impact': 0.0
+        },
+        {
+            'name': 'ROAS',
+            'current': round(np.random.uniform(1.8, 4.2), 1),
+            'simulated': 0,
+            'impact': 0.0
+        }
+    ]
 
 def determine_platform(df, filename, file_format):
     """
@@ -414,111 +583,6 @@ def extract_campaign_name(df, filename):
         return 'All Campaigns'
     
     return name
-
-def extract_metrics(df):
-    """
-    Extract key metrics (clicks, conversions, ROAS) from the data.
-    
-    Args:
-        df: DataFrame containing the data
-        
-    Returns:
-        list: List of metric dictionaries
-    """
-    metrics = []
-    
-    # Common column names for metrics
-    click_columns = ['Clicks', 'Click', 'Clicks (all)', 'Total clicks', 'Link clicks']
-    conversion_columns = ['Conversions', 'All conv.', 'Conversion', 'Purchases', 'All conversions']
-    roas_columns = ['ROAS', 'Return on ad spend', 'RoAS', 'Return on Ad Spend']
-    
-    # Find click metric
-    click_col = next((col for col in click_columns if col in df.columns), None)
-    if click_col:
-        clicks = round(df[click_col].sum())
-        metrics.append({
-            'name': 'Clicks',
-            'current': clicks,
-            'simulated': clicks,
-            'impact': 0.0
-        })
-    else:
-        # Add placeholder with random data if metric not found
-        metrics.append({
-            'name': 'Clicks',
-            'current': round(np.random.uniform(800, 12000)),
-            'simulated': 0,  # Will be updated later
-            'impact': 0.0
-        })
-    
-    # Find conversion metric
-    conv_col = next((col for col in conversion_columns if col in df.columns), None)
-    if conv_col:
-        # Handle potentially non-numeric values
-        try:
-            conversions = round(pd.to_numeric(df[conv_col], errors='coerce').sum())
-            metrics.append({
-                'name': 'Conversions',
-                'current': conversions,
-                'simulated': conversions,
-                'impact': 0.0
-            })
-        except:
-            metrics.append({
-                'name': 'Conversions',
-                'current': round(np.random.uniform(50, 800)),
-                'simulated': 0,  # Will be updated later
-                'impact': 0.0
-            })
-    else:
-        metrics.append({
-            'name': 'Conversions',
-            'current': round(np.random.uniform(50, 800)),
-            'simulated': 0,  # Will be updated later
-            'impact': 0.0
-        })
-    
-    # Try to calculate ROAS or find it directly
-    roas_value = 0
-    roas_col = next((col for col in roas_columns if col in df.columns), None)
-    
-    if roas_col:
-        # If ROAS is directly available
-        try:
-            roas_value = round(pd.to_numeric(df[roas_col], errors='coerce').mean(), 1)
-        except:
-            roas_value = round(np.random.uniform(1.8, 4.2), 1)
-    else:
-        # Try to calculate from conversion value and cost
-        conv_value_cols = ['Conv. value', 'All conv. value', 'Conversion value', 'Revenue']
-        cost_cols = ['Cost', 'Spend', 'Amount spent']
-        
-        conv_value_col = next((col for col in conv_value_cols if col in df.columns), None)
-        cost_col = next((col for col in cost_cols if col in df.columns), None)
-        
-        if conv_value_col and cost_col:
-            try:
-                conv_value = pd.to_numeric(df[conv_value_col], errors='coerce').sum()
-                cost = pd.to_numeric(df[cost_col], errors='coerce').sum()
-                if cost > 0:
-                    roas_value = round(conv_value / cost, 1)
-            except:
-                roas_value = round(np.random.uniform(1.8, 4.2), 1)
-        else:
-            roas_value = round(np.random.uniform(1.8, 4.2), 1)
-    
-    metrics.append({
-        'name': 'ROAS',
-        'current': roas_value if roas_value > 0 else round(np.random.uniform(1.8, 4.2), 1),
-        'simulated': 0,  # Will be updated later
-        'impact': 0.0
-    })
-    
-    # Update simulated values to match current (initial state)
-    for metric in metrics:
-        metric['simulated'] = metric['current']
-    
-    return metrics
 
 def extract_budget(df):
     """
@@ -621,8 +685,10 @@ def simulate_budget_change(impact_data, budget_changes):
             
             # Update metrics
             for metric in forecast['metrics']:
-                if metric['name'] == 'ROAS':
-                    # ROAS generally doesn't scale linearly with budget
+                metric_name = metric['name'].lower()
+                
+                if 'roas' in metric_name or 'roi' in metric_name:
+                    # ROAS/ROI generally doesn't scale linearly with budget
                     # It often decreases with budget increases
                     if change_percent > 0:
                         # Diminishing returns for ROAS with budget increases
@@ -641,13 +707,63 @@ def simulate_budget_change(impact_data, budget_changes):
                     
                     impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
                     
-                    metric['simulated'] = round(new_value, 1)
+                    # Maintain the same type (float or int)
+                    if isinstance(metric['current'], int):
+                        metric['simulated'] = round(new_value)
+                    else:
+                        metric['simulated'] = round(new_value, 1)
+                    
+                    metric['impact'] = round(impact_percent, 1)
+                elif any(term in metric_name for term in ['cpc', 'cpm', 'cpa', 'cost per']):
+                    # Cost metrics often move inversely to budget due to auction dynamics
+                    if change_percent > 0:
+                        # Cost per metrics often increase slightly with budget
+                        increase_factor = 1 + (change_percent/100) * 0.05
+                        new_value = metric['current'] * increase_factor
+                    else:
+                        # Cost per metrics might decrease with budget reduction
+                        decrease_factor = 1 + (change_percent/100) * 0.03
+                        new_value = metric['current'] * decrease_factor
+                    
+                    impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
+                    
+                    # Maintain the same type (float or int)
+                    if isinstance(metric['current'], int):
+                        metric['simulated'] = round(new_value)
+                    else:
+                        metric['simulated'] = round(new_value, 1)
+                    
+                    metric['impact'] = round(impact_percent, 1)
+                elif any(term in metric_name for term in ['rate', 'percentage', 'ctr']):
+                    # Rate metrics often have minimal change with budget
+                    if change_percent > 0:
+                        # Slight decrease in rate metrics with higher budget
+                        factor = 1 - (change_percent/100) * 0.03
+                        new_value = metric['current'] * factor
+                    else:
+                        # Slight increase in rate metrics with lower budget
+                        factor = 1 - (change_percent/100) * 0.02
+                        new_value = metric['current'] * factor
+                    
+                    impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
+                    
+                    # Maintain the same type (float or int)
+                    if isinstance(metric['current'], int):
+                        metric['simulated'] = round(new_value)
+                    else:
+                        metric['simulated'] = round(new_value, 2)
+                    
                     metric['impact'] = round(impact_percent, 1)
                 else:
-                    # For clicks and conversions, use the elasticity model
+                    # For other metrics, use the elasticity model
                     new_value, impact_percent = calculate_impact(metric['current'], change_percent)
                     
-                    metric['simulated'] = round(new_value)
+                    # Maintain the same type (float or int)
+                    if isinstance(metric['current'], int):
+                        metric['simulated'] = round(new_value)
+                    else:
+                        metric['simulated'] = round(new_value, 2)
+                    
                     metric['impact'] = round(impact_percent, 1)
     
     # Update total budget
