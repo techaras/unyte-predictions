@@ -495,28 +495,14 @@ def format_metric_value(metric_name, value):
     """
     metric_lower = metric_name.lower()
     
-    # Determine formatting by metric type
-    if any(term in metric_lower for term in ['rate', 'ctr', 'percentage']):
-        # Percentage metrics - round to 2 decimal places
-        return round(value, 2)
-    elif any(term in metric_lower for term in ['roas', 'roi', 'cpc', 'cpm', 'cpa', 'cost per']):
-        # Financial ratios - round to 1 decimal place
-        return round(value, 1)
-    elif any(term in metric_lower for term in ['revenue', 'cost', 'spend', 'value']):
-        # Currency values - round to 2 decimal places
-        return round(value, 2)
-    elif any(term in metric_lower for term in ['conversion', 'click', 'impression', 'view']):
-        # Count metrics - round to integers
-        return round(value)
+    # Only ROAS, CTR, and Conversion Rate should have decimal places
+    if 'roas' in metric_lower:
+        return round(value, 1)  # 1 decimal place for ROAS
+    elif 'ctr' in metric_lower or 'conversion rate' in metric_lower:
+        return round(value, 2)  # 2 decimal places for CTR and Conversion Rate
     else:
-        # Default case - use intelligent rounding
-        abs_value = abs(value)
-        if abs_value >= 1000:
-            return round(value)  # For large numbers, use integers
-        elif abs_value >= 10:
-            return round(value, 1)  # For medium numbers, 1 decimal place
-        else:
-            return round(value, 2)  # For small numbers, 2 decimal places
+        # All other metrics are integers
+        return round(value)
 
 def generate_default_metrics():
     """
@@ -745,11 +731,11 @@ def simulate_budget_change(impact_data, budget_changes):
                     
                     impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
                     
-                    # Maintain the same type (float or int)
-                    if isinstance(metric['current'], int):
-                        metric['simulated'] = round(new_value)
+                    # Format the simulated value based on metric type
+                    if 'roas' in metric_name:
+                        metric['simulated'] = round(new_value, 1)  # 1 decimal place for ROAS
                     else:
-                        metric['simulated'] = round(new_value, 1)
+                        metric['simulated'] = round(new_value)  # ROI as integer
                     
                     metric['impact'] = round(impact_percent, 1)
                 elif any(term in metric_name for term in ['cpc', 'cpm', 'cpa', 'cost per']):
@@ -765,11 +751,8 @@ def simulate_budget_change(impact_data, budget_changes):
                     
                     impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
                     
-                    # Maintain the same type (float or int)
-                    if isinstance(metric['current'], int):
-                        metric['simulated'] = round(new_value)
-                    else:
-                        metric['simulated'] = round(new_value, 1)
+                    # Format the simulated value - cost metrics are integers
+                    metric['simulated'] = round(new_value)
                     
                     metric['impact'] = round(impact_percent, 1)
                 elif any(term in metric_name for term in ['rate', 'percentage', 'ctr']):
@@ -785,22 +768,19 @@ def simulate_budget_change(impact_data, budget_changes):
                     
                     impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
                     
-                    # Maintain the same type (float or int)
-                    if isinstance(metric['current'], int):
-                        metric['simulated'] = round(new_value)
+                    # Format the simulated value - only CTR and Conversion Rate have decimals
+                    if 'ctr' in metric_name or 'conversion rate' in metric_name:
+                        metric['simulated'] = round(new_value, 2)  # 2 decimal places
                     else:
-                        metric['simulated'] = round(new_value, 2)
+                        metric['simulated'] = round(new_value)  # Other rate metrics as integers
                     
                     metric['impact'] = round(impact_percent, 1)
                 else:
                     # For other metrics, use the elasticity model
                     new_value, impact_percent = calculate_impact(metric['current'], change_percent)
                     
-                    # Maintain the same type (float or int)
-                    if isinstance(metric['current'], int):
-                        metric['simulated'] = round(new_value)
-                    else:
-                        metric['simulated'] = round(new_value, 2)
+                    # Format the simulated value - all other metrics as integers
+                    metric['simulated'] = round(new_value)
                     
                     metric['impact'] = round(impact_percent, 1)
     

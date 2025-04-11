@@ -9,9 +9,14 @@ function updateMetricDisplays(forecastId, updatedMetrics) {
         
         const metricData = updatedMetrics.find(m => m.name === metricName);
         if (metricData && simulatedElement && impactElement) {
-            // Update simulated value
-            simulatedElement.textContent = metricName === 'ROAS' ? 
-                metricData.simulated.toFixed(1) : Math.round(metricData.simulated);
+            // Update simulated value with appropriate formatting
+            if (metricName === 'ROAS') {
+                simulatedElement.textContent = parseFloat(metricData.simulated).toFixed(1);
+            } else if (metricName === 'CTR' || metricName === 'Conversion Rate') {
+                simulatedElement.textContent = parseFloat(metricData.simulated).toFixed(2);
+            } else {
+                simulatedElement.textContent = Math.round(parseFloat(metricData.simulated));
+            }
             
             // Update impact value and color
             impactElement.textContent = `${metricData.impact.toFixed(1)}%`;

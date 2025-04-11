@@ -51,10 +51,26 @@
                         </td>
                         <td rowspan="{{ forecast.metrics|length }}">{{ forecast.campaign }}</td>
                         <td rowspan="1">{{ metric.name }}</td>
-                        <td rowspan="1" class="metric-current" data-value="{{ metric.current }}">{{ metric.current }}</td>
-                        <td rowspan="1" class="metric-simulated" data-metric="{{ metric.name }}">{{ metric.simulated }}</td>
+                        <td rowspan="1" class="metric-current" data-value="{{ metric.current }}">
+                            {% if metric.name == 'ROAS' %}
+                                {{ '%.1f'|format(metric.current|float) }}
+                            {% elif metric.name == 'CTR' or metric.name == 'Conversion Rate' %}
+                                {{ '%.2f'|format(metric.current|float) }}
+                            {% else %}
+                                {{ metric.current|int }}
+                            {% endif %}
+                        </td>
+                        <td rowspan="1" class="metric-simulated" data-metric="{{ metric.name }}">
+                            {% if metric.name == 'ROAS' %}
+                                {{ '%.1f'|format(metric.simulated|float) }}
+                            {% elif metric.name == 'CTR' or metric.name == 'Conversion Rate' %}
+                                {{ '%.2f'|format(metric.simulated|float) }}
+                            {% else %}
+                                {{ metric.simulated|int }}
+                            {% endif %}
+                        </td>
                         <td rowspan="1" class="impact-value {% if metric.impact > 0 %}impact-positive{% elif metric.impact < 0 %}impact-negative{% else %}impact-neutral{% endif %}" data-metric="{{ metric.name }}">
-                            {{ metric.impact }}%
+                            {{ '%.1f'|format(metric.impact|float) }}%
                         </td>
                         {% if loop.first %}
                             <td rowspan="{{ forecast.metrics|length }}" class="budget-cell">
@@ -78,10 +94,26 @@
                         {% endif %}
                     {% else %}
                         <td>{{ metric.name }}</td>
-                        <td class="metric-current" data-value="{{ metric.current }}">{{ metric.current }}</td>
-                        <td class="metric-simulated" data-metric="{{ metric.name }}">{{ metric.simulated }}</td>
+                        <td class="metric-current" data-value="{{ metric.current }}">
+                            {% if metric.name == 'ROAS' %}
+                                {{ '%.1f'|format(metric.current|float) }}
+                            {% elif metric.name == 'CTR' or metric.name == 'Conversion Rate' %}
+                                {{ '%.2f'|format(metric.current|float) }}
+                            {% else %}
+                                {{ metric.current|int }}
+                            {% endif %}
+                        </td>
+                        <td class="metric-simulated" data-metric="{{ metric.name }}">
+                            {% if metric.name == 'ROAS' %}
+                                {{ '%.1f'|format(metric.simulated|float) }}
+                            {% elif metric.name == 'CTR' or metric.name == 'Conversion Rate' %}
+                                {{ '%.2f'|format(metric.simulated|float) }}
+                            {% else %}
+                                {{ metric.simulated|int }}
+                            {% endif %}
+                        </td>
                         <td class="impact-value {% if metric.impact > 0 %}impact-positive{% elif metric.impact < 0 %}impact-negative{% else %}impact-neutral{% endif %}" data-metric="{{ metric.name }}">
-                            {{ metric.impact }}%
+                            {{ '%.1f'|format(metric.impact|float) }}%
                         </td>
                     {% endif %}
                 </tr>
