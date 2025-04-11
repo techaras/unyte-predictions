@@ -401,46 +401,8 @@ input:checked + .toggle-slider:before {
     position: relative;
 }
 
-.metric-dropdown-container {
-    position: relative;
-    display: inline-block;
-    margin-left: 5px;
-}
-
 .metrics-counter {
     display: none; /* Hide the counter circle */
-}
-
-.metric-dropdown-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    display: flex;
-    align-items: center;
-}
-
-.metric-dropdown-icon {
-    font-size: 10px;
-    color: #555;
-    margin-left: 2px;
-}
-
-.metric-dropdown-content {
-    display: none;
-    position: absolute;
-    background-color: white;
-    min-width: 240px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
-    z-index: 100;
-    top: 100%;
-    left: 0;
-    margin-top: 5px;
-}
-
-.metric-dropdown-content.show {
-    display: block;
 }
 
 .loading-metrics {
@@ -448,10 +410,6 @@ input:checked + .toggle-slider:before {
     text-align: center;
     color: #7f8c8d;
     font-style: italic;
-}
-
-.metric-dropdown-btn:hover {
-    background-color: #e0e6ed;
 }
 
 .metric-help {
@@ -475,20 +433,6 @@ input:checked + .toggle-slider:before {
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
-}
-
-.metric-dropdown-header {
-    padding: 10px 12px;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.metric-dropdown-header span {
-    font-weight: 600;
-    color: #2c3e50;
-    font-size: 14px;
 }
 
 .metric-select-btn {
@@ -530,12 +474,6 @@ input:checked + .toggle-slider:before {
     cursor: pointer;
 }
 
-.metric-dropdown-footer {
-    padding: 10px 12px;
-    border-top: 1px solid #eee;
-    text-align: right;
-}
-
 .metric-apply-btn {
     background-color: #3498db;
     color: white;
@@ -553,5 +491,5 @@ input:checked + .toggle-slider:before {
 
 /* Hidden row class for metric filtering */
 .forecast-row.hidden-metric {
-    display: none;
+    display: table-row; /* Override the 'display: none' to ensure all rows are visible */
 }
