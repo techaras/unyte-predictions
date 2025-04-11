@@ -267,7 +267,7 @@ def extract_campaign_name_from_metadata(metadata, filename):
 
 def extract_all_metrics_from_forecast_data(df):
     """
-    Extract ALL numeric metrics from forecast data dataframe.
+    Extract ALL numeric metrics from forecast data dataframe using aggregates.
     
     Args:
         df: DataFrame containing forecast data
@@ -280,34 +280,41 @@ def extract_all_metrics_from_forecast_data(df):
     # Skip these columns as they're not metrics
     non_metric_columns = ['date', 'metric_type', 'date_range', 'segment', 'campaign']
     
-    # Get all columns that could be metrics
+    # First pass: Get all columns that could be metrics
     potential_metric_columns = [col for col in df.columns 
                               if col.lower() not in non_metric_columns]
     
-    # Determine if each column has numeric data and extract it
+    # Second pass: Calculate raw totals
+    raw_totals = {}
     for col in potential_metric_columns:
         try:
-            # Skip columns with mostly non-numeric data
-            numeric_count = pd.to_numeric(df[col], errors='coerce').notna().sum()
-            if numeric_count < len(df) * 0.5:  # If less than 50% are numeric, skip
-                continue
-                
-            # Get the forecasted value (typically the last row)
-            value = df[col].iloc[-1] if not df.empty else 0
-            
-            if isinstance(value, str) and ',' in value:
-                # Handle comma-separated thousands
-                value = float(value.replace(',', ''))
-            else:
-                try:
-                    value = float(value)
-                except:
-                    continue  # Skip if not convertible to float
-            
+            numeric_values = pd.to_numeric(df[col], errors='coerce')
+            if numeric_values.notna().sum() > len(df) * 0.5:  # If >50% are numeric
+                raw_totals[col] = numeric_values.sum()
+        except:
+            continue
+    
+    # Third pass: Process metrics based on their type
+    for col in raw_totals.keys():
+        try:
             # Format the display name
             display_name = format_metric_name(col)
+            metric_lower = display_name.lower()
             
-            # Format the value appropriately based on metric type
+            value = raw_totals[col]
+            
+            # Special handling for derived metrics (similar to extract_all_metrics function)
+            if 'ctr' in metric_lower or 'click through rate' in metric_lower:
+                # Similar CTR calculation as in extract_all_metrics
+                clicks_col = next((c for c in raw_totals if 'click' in c.lower()), None)
+                impr_col = next((c for c in raw_totals if 'impr' in c.lower() or 'impression' in c.lower()), None)
+                
+                if clicks_col and impr_col and raw_totals[impr_col] > 0:
+                    value = (raw_totals[clicks_col] / raw_totals[impr_col]) * 100
+            
+            # Add similar blocks for other rate metrics as in extract_all_metrics
+            
+            # Format the value appropriately
             formatted_value = format_metric_value(display_name, value)
             
             metrics.append({
@@ -327,7 +334,8 @@ def extract_all_metrics_from_forecast_data(df):
 
 def extract_all_metrics(df):
     """
-    Extract ALL numeric metrics from the dataframe.
+    Extract ALL numeric metrics from the dataframe using aggregate totals.
+    Properly handles different metric types (counts, rates, financial metrics).
     
     Args:
         df: DataFrame containing the data
@@ -341,9 +349,8 @@ def extract_all_metrics(df):
     non_metric_columns = ['date', 'campaign', 'ad_group', 'ad', 'keyword', 'platform', 
                         'source', 'medium', 'device', 'country', 'region', 'city']
     
-    # Identify potential metric columns (numeric or percentage columns)
+    # First pass: Identify all possible metric columns
     potential_metric_columns = []
-    
     for col in df.columns:
         if col.lower() in [c.lower() for c in non_metric_columns]:
             continue
@@ -356,41 +363,72 @@ def extract_all_metrics(df):
         except:
             continue
     
-    # Process each metric column
+    # Second pass: Calculate raw totals for all metrics and store
+    raw_totals = {}
     for col in potential_metric_columns:
         try:
-            # Calculate a sensible value from the column
             values = pd.to_numeric(df[col], errors='coerce')
+            raw_totals[col] = values.sum()
+        except Exception as e:
+            logger.warning(f"Error calculating raw total for {col}: {str(e)}")
+    
+    # Third pass: Process each metric with proper logic based on metric type
+    for col in potential_metric_columns:
+        try:
+            metric_name = format_metric_name(col)
+            metric_lower = metric_name.lower()
             
-            # Determine if this is a rate/percentage metric
-            is_percentage = False
-            if '%' in col or 'rate' in col.lower() or 'ratio' in col.lower() or 'roas' in col.lower():
-                is_percentage = True
-            
-            # Get an appropriate value (sum or average)
-            if is_percentage:
-                value = values.mean()  # Use average for rates
-            else:
-                value = values.sum()  # Use sum for counts
-            
-            # Skip if value is NaN or too small
-            if pd.isna(value) or abs(value) < 0.00001:
+            # Skip if raw total is NaN or too small
+            if pd.isna(raw_totals[col]) or abs(raw_totals[col]) < 0.00001:
                 continue
+            
+            # Default to using the raw total
+            value = raw_totals[col]
+            
+            # Special handling for derived metrics
+            if 'ctr' in metric_lower or 'click through rate' in metric_lower:
+                # If we have both clicks and impressions, recalculate CTR from totals
+                clicks_col = next((c for c in raw_totals if 'click' in c.lower()), None)
+                impr_col = next((c for c in raw_totals if 'impr' in c.lower() or 'impression' in c.lower()), None)
                 
-            # Format the display name
-            display_name = format_metric_name(col)
+                if clicks_col and impr_col and raw_totals[impr_col] > 0:
+                    value = (raw_totals[clicks_col] / raw_totals[impr_col]) * 100
+                
+            elif 'conversion rate' in metric_lower:
+                # Recalculate conversion rate from total conversions and clicks
+                conv_col = next((c for c in raw_totals if 'conv' in c.lower() and 'rate' not in c.lower()), None)
+                clicks_col = next((c for c in raw_totals if 'click' in c.lower()), None)
+                
+                if conv_col and clicks_col and raw_totals[clicks_col] > 0:
+                    value = (raw_totals[conv_col] / raw_totals[clicks_col]) * 100
+            
+            elif 'roas' in metric_lower:
+                # Recalculate ROAS from conversion value and cost
+                value_col = next((c for c in raw_totals if 'value' in c.lower() or 'revenue' in c.lower()), None)
+                cost_col = next((c for c in raw_totals if 'cost' in c.lower() or 'spend' in c.lower()), None)
+                
+                if value_col and cost_col and raw_totals[cost_col] > 0:
+                    value = raw_totals[value_col] / raw_totals[cost_col]
+            
+            elif 'roi' in metric_lower:
+                # Recalculate ROI from revenue and cost
+                revenue_col = next((c for c in raw_totals if 'revenue' in c.lower() or 'value' in c.lower()), None)
+                cost_col = next((c for c in raw_totals if 'cost' in c.lower() or 'spend' in c.lower()), None)
+                
+                if revenue_col and cost_col and raw_totals[cost_col] > 0:
+                    value = ((raw_totals[revenue_col] - raw_totals[cost_col]) / raw_totals[cost_col]) * 100
             
             # Format the value appropriately
-            formatted_value = format_metric_value(display_name, value)
+            formatted_value = format_metric_value(metric_name, value)
             
             metrics.append({
-                'name': display_name,
+                'name': metric_name,
                 'current': formatted_value,
                 'simulated': formatted_value,
                 'impact': 0.0
             })
         except Exception as e:
-            logger.warning(f"Error extracting metric {col}: {str(e)}")
+            logger.warning(f"Error processing metric {col}: {str(e)}")
     
     # If no metrics were extracted, provide default ones
     if not metrics:
