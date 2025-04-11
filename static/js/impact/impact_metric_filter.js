@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupMetricFilter();
 });
 
+// Replace the setupMetricFilter function in impact_metric_filter.js
 function setupMetricFilter() {
     // Get the dropdown button and content
     const dropdownBtn = document.getElementById('metric-dropdown-btn');
@@ -12,10 +13,23 @@ function setupMetricFilter() {
     const selectAllBtn = document.getElementById('select-all-metrics');
     const applyBtn = document.getElementById('apply-metric-selection');
 
+    // Ensure elements exist before adding event listeners
+    if (!dropdownBtn || !dropdown) {
+        console.error('Metric dropdown elements not found');
+        return;
+    }
+
     // Toggle dropdown when button is clicked
     dropdownBtn.addEventListener('click', function(e) {
+        e.preventDefault();
         e.stopPropagation();
+        
+        // Toggle the 'show' class
         dropdown.classList.toggle('show');
+        
+        // Debug logging
+        console.log('Dropdown button clicked');
+        console.log('Dropdown has show class:', dropdown.classList.contains('show'));
         
         // If dropdown is opening and empty, populate metrics
         if (dropdown.classList.contains('show') && checkboxList.children.length === 0) {
@@ -24,30 +38,34 @@ function setupMetricFilter() {
     });
 
     // Close dropdown when clicking outside
-    window.addEventListener('click', function(e) {
+    document.addEventListener('click', function(e) {
         if (dropdown.classList.contains('show') && !dropdown.contains(e.target) && e.target !== dropdownBtn) {
             dropdown.classList.remove('show');
         }
     });
 
     // Select all metrics
-    selectAllBtn.addEventListener('click', function() {
-        const checkboxes = checkboxList.querySelectorAll('input[type="checkbox"]');
-        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-        
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = !allChecked;
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function() {
+            const checkboxes = checkboxList.querySelectorAll('input[type="checkbox"]');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = !allChecked;
+            });
+            
+            // Update button text
+            selectAllBtn.textContent = allChecked ? 'Select All' : 'Deselect All';
         });
-        
-        // Update button text
-        selectAllBtn.textContent = allChecked ? 'Select All' : 'Deselect All';
-    });
+    }
 
     // Apply selected metrics
-    applyBtn.addEventListener('click', function() {
-        applyMetricFilters();
-        dropdown.classList.remove('show');
-    });
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function() {
+            applyMetricFilters();
+            dropdown.classList.remove('show');
+        });
+    }
 }
 
 function populateMetricCheckboxes() {
