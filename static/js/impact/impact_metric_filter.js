@@ -114,20 +114,60 @@ function applyMetricFilters() {
         .filter(cb => cb.checked)
         .map(cb => cb.value);
     
-    // Get all metric rows
-    const metricRows = document.querySelectorAll('.forecast-row');
+    // First, show all rows to reset the table state
+    document.querySelectorAll('.forecast-row').forEach(row => {
+        row.style.display = '';
+    });
     
-    // For each row, check if its metric is in selected metrics
-    let visibleRows = 0;
-    metricRows.forEach(row => {
-        const metricName = row.getAttribute('data-metric-name');
-        
-        if (selectedMetrics.includes(metricName)) {
-            row.style.display = ''; // Show the row
-            visibleRows++;
-        } else {
-            row.style.display = 'none'; // Hide the row
+    // Group rows by forecast ID
+    const forecastGroups = {};
+    document.querySelectorAll('.forecast-row').forEach(row => {
+        const forecastId = row.getAttribute('data-forecast-id');
+        if (!forecastGroups[forecastId]) {
+            forecastGroups[forecastId] = [];
         }
+        forecastGroups[forecastId].push(row);
+    });
+    
+    // Process each forecast group
+    let totalVisibleRows = 0;
+    
+    Object.keys(forecastGroups).forEach(forecastId => {
+        const forecastRows = forecastGroups[forecastId];
+        const firstRow = forecastRows[0]; // First row contains the title/platform/campaign cells
+        
+        // Count how many rows will be visible for this forecast
+        const visibleRows = forecastRows.filter(row => {
+            const metricName = row.getAttribute('data-metric-name');
+            return selectedMetrics.includes(metricName);
+        });
+        
+        // If no metrics visible for this forecast, hide all rows
+        if (visibleRows.length === 0) {
+            forecastRows.forEach(row => {
+                row.style.display = 'none';
+            });
+            return; // Skip to next forecast
+        }
+        
+        // Update rowspan attributes for visible rows
+        const titleCell = firstRow.querySelector('td.forecast-cell');
+        const platformCell = firstRow.querySelector('td.platform-cell');
+        const campaignCell = firstRow.querySelector('td:nth-child(3)'); // 3rd cell is campaign
+        
+        if (titleCell) titleCell.setAttribute('rowspan', visibleRows.length);
+        if (platformCell) platformCell.setAttribute('rowspan', visibleRows.length);
+        if (campaignCell) campaignCell.setAttribute('rowspan', visibleRows.length);
+        
+        // Hide rows with non-selected metrics
+        forecastRows.forEach(row => {
+            const metricName = row.getAttribute('data-metric-name');
+            if (!selectedMetrics.includes(metricName)) {
+                row.style.display = 'none';
+            } else {
+                totalVisibleRows++;
+            }
+        });
     });
     
     // Check if we need to show "no metrics" message
@@ -141,7 +181,7 @@ function applyMetricFilters() {
     }
     
     // Show/hide message based on visible rows
-    noMetricsMsg.style.display = visibleRows > 0 ? 'none' : 'table-row';
+    noMetricsMsg.style.display = totalVisibleRows > 0 ? 'none' : 'table-row';
     
     // Update button to show count of selected metrics
     updateMetricCount(selectedMetrics.length);
