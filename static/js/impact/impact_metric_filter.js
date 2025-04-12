@@ -105,6 +105,8 @@ function populateMetricCheckboxes() {
     });
 }
 
+// This is the simplest and most reliable solution to fix the metric filtering
+
 function applyMetricFilters() {
     const checkboxList = document.getElementById('metric-checkbox-list');
     const checkboxes = checkboxList.querySelectorAll('input[type="checkbox"]');
@@ -114,76 +116,116 @@ function applyMetricFilters() {
         .filter(cb => cb.checked)
         .map(cb => cb.value);
     
-    // First, show all rows to reset the table state
-    document.querySelectorAll('.forecast-row').forEach(row => {
-        row.style.display = '';
-    });
+    // Get the table body
+    const tableBody = document.getElementById('impact-table-body');
     
-    // Group rows by forecast ID
-    const forecastGroups = {};
-    document.querySelectorAll('.forecast-row').forEach(row => {
-        const forecastId = row.getAttribute('data-forecast-id');
-        if (!forecastGroups[forecastId]) {
-            forecastGroups[forecastId] = [];
-        }
-        forecastGroups[forecastId].push(row);
-    });
-    
-    // Process each forecast group
-    let totalVisibleRows = 0;
-    
-    Object.keys(forecastGroups).forEach(forecastId => {
-        const forecastRows = forecastGroups[forecastId];
-        const firstRow = forecastRows[0]; // First row contains the title/platform/campaign cells
-        
-        // Count how many rows will be visible for this forecast
-        const visibleRows = forecastRows.filter(row => {
-            const metricName = row.getAttribute('data-metric-name');
-            return selectedMetrics.includes(metricName);
-        });
-        
-        // If no metrics visible for this forecast, hide all rows
-        if (visibleRows.length === 0) {
-            forecastRows.forEach(row => {
-                row.style.display = 'none';
-            });
-            return; // Skip to next forecast
-        }
-        
-        // Update rowspan attributes for visible rows
-        const titleCell = firstRow.querySelector('td.forecast-cell');
-        const platformCell = firstRow.querySelector('td.platform-cell');
-        const campaignCell = firstRow.querySelector('td:nth-child(3)'); // 3rd cell is campaign
-        
-        if (titleCell) titleCell.setAttribute('rowspan', visibleRows.length);
-        if (platformCell) platformCell.setAttribute('rowspan', visibleRows.length);
-        if (campaignCell) campaignCell.setAttribute('rowspan', visibleRows.length);
-        
-        // Hide rows with non-selected metrics
-        forecastRows.forEach(row => {
-            const metricName = row.getAttribute('data-metric-name');
-            if (!selectedMetrics.includes(metricName)) {
-                row.style.display = 'none';
-            } else {
-                totalVisibleRows++;
-            }
-        });
-    });
-    
-    // Check if we need to show "no metrics" message
-    let noMetricsMsg = document.querySelector('.no-metrics-message');
-    if (!noMetricsMsg) {
-        // Create if it doesn't exist
-        noMetricsMsg = document.createElement('tr');
-        noMetricsMsg.className = 'no-metrics-message';
-        noMetricsMsg.innerHTML = '<td colspan="8">No metrics selected. Please select at least one metric from the dropdown.</td>';
-        document.querySelector('.simulator-table tbody').appendChild(noMetricsMsg);
+    // If we have no metrics selected, show message and return
+    if (selectedMetrics.length === 0) {
+        tableBody.innerHTML = '<tr class="no-metrics-message"><td colspan="8">No metrics selected. Please select at least one metric from the dropdown.</td></tr>';
+        updateMetricCount(0);
+        return;
     }
     
-    // Show/hide message based on visible rows
-    noMetricsMsg.style.display = totalVisibleRows > 0 ? 'none' : 'table-row';
+    // The truly simple solution: Re-render the table completely based on the original data
     
-    // Update button to show count of selected metrics
+    // 1. Clear the table
+    tableBody.innerHTML = '';
+    
+    // 2. Rebuild the table by rendering only the selected metrics
+    impactData.forecasts.forEach(forecast => {
+        // Filter metrics to only include selected ones
+        const filteredMetrics = forecast.metrics.filter(metric => 
+            selectedMetrics.includes(metric.name)
+        );
+        
+        // Skip forecasts with no visible metrics
+        if (filteredMetrics.length === 0) return;
+        
+        // Render each metric row
+        filteredMetrics.forEach((metric, index) => {
+            const row = document.createElement('tr');
+            row.className = 'forecast-row';
+            row.setAttribute('data-forecast-id', forecast.id);
+            row.setAttribute('data-metric-name', metric.name);
+            
+            // Build the row HTML
+            let rowHtml = '';
+            
+            // Only add title/platform/campaign cells for the first visible metric
+            if (index === 0) {
+                rowHtml += `
+                    <td rowspan="${filteredMetrics.length}" class="forecast-cell">${forecast.title}</td>
+                    <td rowspan="${filteredMetrics.length}" class="platform-cell">${forecast.platform}</td>
+                    <td rowspan="${filteredMetrics.length}">${forecast.campaign}</td>
+                `;
+            }
+            
+            // Format value based on metric name
+            let currentValue, simulatedValue;
+            
+            if (metric.name === 'ROAS') {
+                currentValue = parseFloat(metric.current).toFixed(1);
+                simulatedValue = parseFloat(metric.simulated).toFixed(1);
+            } else if (metric.name === 'CTR' || metric.name === 'Conversion Rate') {
+                currentValue = parseFloat(metric.current).toFixed(2);
+                simulatedValue = parseFloat(metric.simulated).toFixed(2);
+            } else {
+                currentValue = parseInt(metric.current);
+                simulatedValue = parseInt(metric.simulated);
+            }
+            
+            // Determine impact class
+            let impactClass = 'impact-neutral';
+            if (metric.impact > 0) {
+                impactClass = 'impact-positive';
+            } else if (metric.impact < 0) {
+                impactClass = 'impact-negative';
+            }
+            
+            // Add the metric-specific cells
+            rowHtml += `
+                <td data-metric="${metric.name}">${metric.name}</td>
+                <td class="metric-current" data-value="${metric.current}">${currentValue}</td>
+                <td class="metric-simulated" data-metric="${metric.name}">${simulatedValue}</td>
+                <td class="impact-value ${impactClass}" data-metric="${metric.name}">${parseFloat(metric.impact).toFixed(1)}%</td>
+            `;
+            
+            // Add budget cell only to the first row of each forecast
+            if (index === 0) {
+                rowHtml += `
+                    <td rowspan="${filteredMetrics.length}" class="budget-cell">
+                        <div class="slider-container">
+                            <input type="range" min="-100" max="100" value="0" class="slider" id="slider-${forecast.id}">
+                            <div class="slider-labels">
+                                <span>-100%</span>
+                                <span>0%</span>
+                                <span>+100%</span>
+                            </div>
+                        </div>
+                        <div id="budget-${forecast.id}" class="budget-value">
+                            <div class="budget-display" id="budget-display-${forecast.id}">${formatCurrency(forecast.budget)}</div>
+                            <input type="text" class="budget-input" id="budget-input-${forecast.id}" 
+                                   value="${forecast.budget.toFixed(2)}" 
+                                   data-original="${forecast.original_budget}"
+                                   style="display: none;">
+                        </div>
+                    </td>
+                `;
+            }
+            
+            // Set the row HTML
+            row.innerHTML = rowHtml;
+            
+            // Add to table body
+            tableBody.appendChild(row);
+        });
+    });
+    
+    // Re-setup event listeners since we recreated DOM elements
+    setupBudgetEditing(impactData);
+    setupSliders(impactData);
+    
+    // Update metric count
     updateMetricCount(selectedMetrics.length);
 }
 
