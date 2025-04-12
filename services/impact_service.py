@@ -297,9 +297,9 @@ def extract_all_metrics_from_forecast_data(df):
     # Third pass: Process metrics based on their type
     for col in raw_totals.keys():
         try:
-            # Format the display name
-            display_name = format_metric_name(col)
-            metric_lower = display_name.lower()
+            # Use original column name instead of formatting it
+            display_name = col
+            metric_lower = col.lower()
             
             value = raw_totals[col]
             
@@ -375,8 +375,9 @@ def extract_all_metrics(df):
     # Third pass: Process each metric with proper logic based on metric type
     for col in potential_metric_columns:
         try:
-            metric_name = format_metric_name(col)
-            metric_lower = metric_name.lower()
+            # Use original column name instead of formatting it
+            metric_name = col
+            metric_lower = col.lower()
             
             # Skip if raw total is NaN or too small
             if pd.isna(raw_totals[col]) or abs(raw_totals[col]) < 0.00001:
@@ -496,10 +497,13 @@ def format_metric_value(metric_name, value):
     metric_lower = metric_name.lower()
     
     # Only ROAS, CTR, and Conversion Rate should have decimal places
-    if 'roas' in metric_lower:
+    # Check for various spellings and abbreviations that might appear in original column names
+    if any(term in metric_lower for term in ['roas', 'return on ad spend', 'return on adspend', 'roi']):
         return round(value, 1)  # 1 decimal place for ROAS
-    elif 'ctr' in metric_lower or 'conversion rate' in metric_lower:
-        return round(value, 2)  # 2 decimal places for CTR and Conversion Rate
+    elif any(term in metric_lower for term in ['ctr', 'click through', 'click-through', 'click rate']):
+        return round(value, 2)  # 2 decimal places for CTR
+    elif any(term in metric_lower for term in ['conv rate', 'conversion rate', 'cvr', 'conv. rate']):
+        return round(value, 2)  # 2 decimal places for Conversion Rate
     else:
         # All other metrics are integers
         return round(value)
@@ -711,7 +715,15 @@ def simulate_budget_change(impact_data, budget_changes):
             for metric in forecast['metrics']:
                 metric_name = metric['name'].lower()
                 
-                if 'roas' in metric_name or 'roi' in metric_name:
+                # More flexible pattern matching for original column names
+                is_roas_metric = any(term in metric_name for term in ['roas', 'return on ad', 'return on spend'])
+                is_roi_metric = any(term in metric_name for term in ['roi', 'return on invest'])
+                is_cost_per_metric = any(term in metric_name for term in ['cpc', 'cpm', 'cpa', 'cost per', 'cost / '])
+                is_rate_metric = any(term in metric_name for term in ['rate', 'percentage', 'ctr', 'cvr', 'conv. rate', '%'])
+                is_ctr_metric = any(term in metric_name for term in ['ctr', 'click through', 'click-through', 'click rate'])
+                is_conv_rate_metric = any(term in metric_name for term in ['conv rate', 'conversion rate', 'cvr', 'conv. rate'])
+                
+                if is_roas_metric or is_roi_metric:
                     # ROAS/ROI generally doesn't scale linearly with budget
                     # It often decreases with budget increases
                     if change_percent > 0:
@@ -732,13 +744,13 @@ def simulate_budget_change(impact_data, budget_changes):
                     impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
                     
                     # Format the simulated value based on metric type
-                    if 'roas' in metric_name:
+                    if is_roas_metric:
                         metric['simulated'] = round(new_value, 1)  # 1 decimal place for ROAS
                     else:
                         metric['simulated'] = round(new_value)  # ROI as integer
                     
                     metric['impact'] = round(impact_percent, 1)
-                elif any(term in metric_name for term in ['cpc', 'cpm', 'cpa', 'cost per']):
+                elif is_cost_per_metric:
                     # Cost metrics often move inversely to budget due to auction dynamics
                     if change_percent > 0:
                         # Cost per metrics often increase slightly with budget
@@ -755,7 +767,7 @@ def simulate_budget_change(impact_data, budget_changes):
                     metric['simulated'] = round(new_value)
                     
                     metric['impact'] = round(impact_percent, 1)
-                elif any(term in metric_name for term in ['rate', 'percentage', 'ctr']):
+                elif is_rate_metric:
                     # Rate metrics often have minimal change with budget
                     if change_percent > 0:
                         # Slight decrease in rate metrics with higher budget
@@ -769,7 +781,7 @@ def simulate_budget_change(impact_data, budget_changes):
                     impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
                     
                     # Format the simulated value - only CTR and Conversion Rate have decimals
-                    if 'ctr' in metric_name or 'conversion rate' in metric_name:
+                    if is_ctr_metric or is_conv_rate_metric:
                         metric['simulated'] = round(new_value, 2)  # 2 decimal places
                     else:
                         metric['simulated'] = round(new_value)  # Other rate metrics as integers
