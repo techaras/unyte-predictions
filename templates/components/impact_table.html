@@ -33,7 +33,26 @@
             <th>Title</th>
             <th>Platform</th>
             <th>Campaign</th>
-            <th>Metric</th>
+            <th class="metric-header">
+                <span>Metric</span>
+                <div class="metric-dropdown-container">
+                    <button id="metric-dropdown-btn" class="metric-dropdown-btn">
+                        <span>Filter</span>
+                        <span class="metric-dropdown-icon">▼</span>
+                    </button>
+                    <div id="metric-dropdown" class="metric-dropdown-content">
+                        <div class="metric-dropdown-header">
+                            <button id="select-all-metrics" class="metric-select-btn">Select All</button>
+                        </div>
+                        <div id="metric-checkbox-list">
+                            <!-- Checkboxes will be populated by JavaScript -->
+                        </div>
+                        <div class="metric-dropdown-footer">
+                            <button id="apply-metric-selection" class="metric-apply-btn">Apply</button>
+                        </div>
+                    </div>
+                </div>
+            </th>
             <th>Current</th>
             <th>Simulated</th>
             <th>Impact</th>
