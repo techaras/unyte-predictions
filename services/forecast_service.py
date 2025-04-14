@@ -1,5 +1,6 @@
 from prophet import Prophet
 import pandas as pd
+import numpy as np
 from config import logger
 from services.viz_service import create_forecast_plots
 
@@ -70,7 +71,7 @@ def generate_forecast(df, date_col, metrics, forecast_period, budget_col=None, p
         logger.info(f"Forecasting for metric: {metric} with {len(prophet_df)} data points")
         
         try:
-            # Add synthetic budget variation if needed
+            # Log budget statistics but don't create synthetic data
             if 'budget' in prophet_df.columns:
                 budget_variation = prophet_df['budget'].nunique()
                 budget_min = prophet_df['budget'].min()
@@ -79,32 +80,19 @@ def generate_forecast(df, date_col, metrics, forecast_period, budget_col=None, p
                 
                 logger.info(f"Budget column values: unique={budget_variation}, min={budget_min}, max={budget_max}, mean={budget_mean}")
                 
-                # If limited budget variation (less than 3 unique values), add synthetic data
+                # Warning if limited budget variation, but don't add synthetic data
                 if budget_variation < 3:
-                    logger.info(f"Limited budget variation detected ({budget_variation} unique values). Adding synthetic data.")
-                    
-                    # Create a copy of data with slightly varied budgets
-                    synthetic_low = prophet_df.copy()
-                    synthetic_low['budget'] = synthetic_low['budget'] * 0.8
-                    synthetic_low['y'] = synthetic_low['y'] * 0.9  # Assume 10% less results
-                    
-                    synthetic_high = prophet_df.copy()
-                    synthetic_high['budget'] = synthetic_high['budget'] * 1.2
-                    synthetic_high['y'] = synthetic_high['y'] * 1.1  # Assume 10% more results
-                    
-                    # Combine the data
-                    prophet_df = pd.concat([prophet_df, synthetic_low, synthetic_high])
-                    logger.info(f"Added synthetic data. New dataset size: {len(prophet_df)} rows")
+                    logger.warning(f"Limited budget variation detected ({budget_variation} unique values). Budget-metric relationship may be unreliable.")
             
             # Create model
             model = Prophet()
             
-            # Add budget as a regressor if available
+            # Add budget as a regressor if available, but with reasonable prior_scale
             budget_elasticity = None
             if budget_col and 'budget' in prophet_df.columns:
                 logger.info(f"Adding budget as regressor for {metric}")
-                # Use higher prior_scale to emphasize budget relationship
-                model.add_regressor('budget', prior_scale=10.0)  # Default is 5.0
+                # Use moderate prior_scale for budget relationship
+                model.add_regressor('budget', prior_scale=1.0)  # Reduced from 10.0
             
             # Fit model
             model.fit(prophet_df)
@@ -119,6 +107,10 @@ def generate_forecast(df, date_col, metrics, forecast_period, budget_col=None, p
                 
                 if future_budget_value is not None:
                     logger.info(f"Using future budget value: {future_budget_value} for {metric}")
+                    
+                    # Check if future budget is reasonable compared to historical data
+                    if future_budget_value > budget_max * 2:
+                        logger.warning(f"Future budget ({future_budget_value}) is more than 2x the historical maximum ({budget_max}). Projections may be unreliable.")
                     
                     # Set future budget values
                     future['budget'] = future_budget_value
@@ -142,6 +134,20 @@ def generate_forecast(df, date_col, metrics, forecast_period, budget_col=None, p
                         # Calculate budget impact
                         budget_impact = budget_coef * future_budget_value
                         
+                        # Check if budget impact seems unreasonable
+                        budget_impact_percent = abs(budget_impact / baseline_avg) * 100
+                        if budget_impact_percent > 100:
+                            logger.warning(f"Budget impact for {metric} seems unreasonably high: {budget_impact_percent:.2f}% of baseline")
+                            # Cap coefficient to a more reasonable value
+                            budget_coef_capped = budget_coef
+                            if abs(budget_coef) > abs(baseline_avg / (future_budget_value * 2)):
+                                budget_coef_capped = (baseline_avg / (future_budget_value * 2))
+                                if budget_coef < 0:
+                                    budget_coef_capped = -budget_coef_capped
+                                logger.info(f"Capped budget coefficient from {budget_coef} to {budget_coef_capped}")
+                                budget_coef = budget_coef_capped
+                            budget_impact = budget_coef * future_budget_value
+                        
                         # Store elasticity info
                         budget_elasticity = {
                             'coefficient': float(budget_coef),
@@ -161,6 +167,13 @@ def generate_forecast(df, date_col, metrics, forecast_period, budget_col=None, p
             
             # Make prediction
             forecast = model.predict(future)
+            
+            # Ensure predictions are reasonable and non-negative for metrics that can't be negative
+            if metric.lower() in ['website purchases', 'purchases', 'conversion', 'conversions', 
+                                  'adds to cart', 'atc', 'add to cart']:
+                logger.info(f"Ensuring non-negative forecasts for {metric}")
+                forecast['yhat'] = forecast['yhat'].clip(lower=0)
+                forecast['yhat_lower'] = forecast['yhat_lower'].clip(lower=0)
             
             # Create visualizations and get paths
             plot_path, components_path = create_forecast_plots(
