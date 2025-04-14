@@ -125,13 +125,44 @@ def process():
     # Get estimated budget and convert to float for formatting
     try:
         estimated_budget = float(request.form.get('estimated_budget', 0))
+        daily_budget = estimated_budget / forecast_period  # Calculate daily budget
     except ValueError:
         estimated_budget = 0
-    logger.info(f"Estimated budget for campaign: {estimated_budget}")
+        daily_budget = 0
+    logger.info(f"Estimated budget for campaign: {estimated_budget}, daily: {daily_budget}")
     
     # Get currency from budget_data in session
     budget_data = session.get('budget_data', {})
     currency = budget_data.get('currency', '£')
+    
+    # Identify the budget/spend column
+    spend_column = None
+    if 'budget_column' in budget_data:
+        spend_column = budget_data['budget_column']
+    else:
+        # Find the spend column based on file format
+        file_format = session.get('file_format', {})
+        if file_format.get('source') == 'google_ads':
+            spend_columns = ['Cost', 'Budget', 'Daily Budget', 'Cost / conv.', 'Avg. CPC']
+        elif file_format.get('source') == 'meta':
+            spend_columns = ['Amount spent', 'Spend', 'Budget', 'Amount spent (EUR)', 'Amount spent (USD)']
+        else:
+            spend_columns = ['Spend', 'Cost', 'Budget', 'Daily budget', 'Amount spent']
+        
+        # Check uploaded file for matching columns
+        file_path = os.path.join(UPLOAD_FOLDER, session.get('uploaded_file', ''))
+        if os.path.exists(file_path):
+            try:
+                # Read just the headers to check for columns
+                df_sample = pd.read_csv(file_path, skiprows=file_format.get('skiprows', 0), nrows=1)
+                # Find first matching column
+                for col in spend_columns:
+                    if col in df_sample.columns:
+                        spend_column = col
+                        logger.info(f"Using {spend_column} as budget column for regression")
+                        break
+            except Exception as e:
+                logger.warning(f"Could not identify budget column: {e}")
     
     # Get campaign end date if provided
     campaign_end_date = request.form.get('campaign_end_date')
@@ -177,14 +208,32 @@ def process():
         # Get file format from session or re-detect it
         file_format = session.get('file_format')
         
-        # Prepare data for forecasting
-        df = prepare_data_for_forecast(file_path, file_format, date_col, date_format, selected_metrics)
+        # Include spend column in metrics for data preparation
+        metrics_with_budget = selected_metrics.copy()
+        if spend_column and spend_column not in metrics_with_budget:
+            metrics_with_budget.append(spend_column)
         
-        # Generate forecasts
-        results = generate_forecast(df, date_col, selected_metrics, forecast_period)
+        # Prepare data for forecasting
+        df = prepare_data_for_forecast(file_path, file_format, date_col, date_format, metrics_with_budget)
+        
+        # Generate forecasts with budget as regressor
+        results = generate_forecast(
+            df, 
+            date_col, 
+            selected_metrics, 
+            forecast_period,
+            budget_col=spend_column,
+            projected_budget=daily_budget
+        )
         
         # Clean up the file
         os.remove(file_path)
+        
+        # Extract elasticity data for the template
+        elasticity_data = {}
+        for metric, data in results.items():
+            if 'elasticity' in data and data['elasticity']:
+                elasticity_data[metric] = data['elasticity']
         
         # Save forecast data to temp file and get ID instead of storing in session
         forecast_id = save_forecast_data(
@@ -208,7 +257,7 @@ def process():
         session.pop('last_date', None)
         session.pop('budget_data', None)
         
-        # Pass all forecast metadata to the template
+        # Pass all forecast metadata to the template, including elasticity data
         return render_template('results.html', 
                               results=results,
                               forecast_title=forecast_title,
@@ -216,7 +265,8 @@ def process():
                               budget=estimated_budget,
                               currency=currency,
                               date_range=date_range,
-                              forecast_id=forecast_id)  # Pass forecast ID to template
+                              forecast_id=forecast_id,
+                              elasticity_data=elasticity_data)  # New elasticity data
     
     except Exception as e:
         error_message = f'Error processing file: {str(e)}'

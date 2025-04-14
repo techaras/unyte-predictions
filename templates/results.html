@@ -32,6 +32,56 @@
             </a>
         </div>
         
+        <!-- Budget Sensitivity Analysis Section -->
+        {% if elasticity_data %}
+        <div class="budget-sensitivity-section">
+            <h2>Budget Sensitivity Analysis</h2>
+            <p>Adjust the budget slider to see how changes in spending would impact your forecast metrics</p>
+            
+            <div class="budget-slider-container">
+                <div class="budget-range">
+                    <span>-50%</span>
+                    <input type="range" id="budget-slider" min="50" max="200" value="100" 
+                           data-original-budget="{{ budget|int }}">
+                    <span>+100%</span>
+                </div>
+                <div class="current-budget-display">
+                    Current Budget: <span id="current-budget" data-currency="{{ currency }}">{{ currency }}{{ budget|int }}</span>
+                </div>
+            </div>
+            
+            <div class="elasticity-cards">
+                {% for metric, data in elasticity_data.items() %}
+                    <div class="elasticity-card" 
+                         data-metric="{{ metric }}"
+                         data-coefficient="{{ data.coefficient }}"
+                         data-baseline="{{ data.baseline_avg }}">
+                        <h3>{{ metric }}</h3>
+                        <div class="metric-value">
+                            <span class="predicted-value">{{ data.baseline_avg|round(2) }}</span>
+                            <span class="percent-change">0%</span>
+                        </div>
+                        <div class="budget-relationship" data-direction="{{ data.direction }}">
+                            {% if data.direction == 'positive' %}
+                                <span class="relationship-indicator positive">↑</span> Increases with budget
+                            {% elif data.direction == 'negative' %}
+                                <span class="relationship-indicator negative">↓</span> Decreases with budget
+                            {% else %}
+                                <span class="relationship-indicator neutral">→</span> Minimal budget impact
+                            {% endif %}
+                        </div>
+                        <div class="budget-sensitivity">
+                            Budget Impact: {{ data.budget_impact }}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="sensitivity-note">
+                <p><strong>Note:</strong> This analysis shows how metrics historically responded to budget changes in your data. The impact is calculated using regression coefficients from the forecast model.</p>
+            </div>
+        </div>
+        {% endif %}
+        
         {% if results %}
             {% for metric, result in results.items() %}
                 <div class="result-card">
@@ -82,5 +132,8 @@
             </div>
         {% endif %}
     </div>
+
+    <!-- Add script reference to budget sensitivity JS file -->
+    <script src="{{ url_for('static', filename='js/budget_sensitivity.js') }}"></script>
 </body>
 </html>
