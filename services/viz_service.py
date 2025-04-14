@@ -90,8 +90,10 @@ def create_forecast_plots(prophet_df, forecast, metric, budget_col=None):
         # Update layout for dual y-axes
         fig_forecast.update_layout(
             yaxis2=dict(
-                title='Budget',
-                titlefont=dict(color='green'),
+                title=dict(
+                    text='Budget',
+                    font=dict(color='green')
+                ),
                 tickfont=dict(color='green'),
                 overlaying='y',
                 side='right'
