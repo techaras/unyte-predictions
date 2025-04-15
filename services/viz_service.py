@@ -45,6 +45,17 @@ def create_forecast_plots(prophet_df, forecast, metric, budget_change_ratio=1.0)
         line=dict(color='red')
     ))
     
+    # Add confidence intervals (uncertainty)
+    fig_forecast.add_trace(go.Scatter(
+        x=forecast['ds'].tolist() + forecast['ds'].tolist()[::-1],
+        y=forecast['yhat_upper'].tolist() + forecast['yhat_lower'].tolist()[::-1],
+        fill='toself',
+        fillcolor='rgba(0,176,246,0.2)',
+        line=dict(color='rgba(255,255,255,0)'),
+        hoverinfo="skip",
+        name="95% Confidence Interval"
+    ))
+    
     # Add a vertical line where forecast begins
     fig_forecast.add_shape(
         type="line",
@@ -58,6 +69,18 @@ def create_forecast_plots(prophet_df, forecast, metric, budget_change_ratio=1.0)
     # Add annotation about budget change if different from 1.0
     if abs(budget_change_ratio - 1.0) > 0.01:  # If budget changed by more than 1%
         budget_change_text = f"Budget impact: {budget_change_ratio:.2f}x"
+        
+        # Extract budget effect magnitude if available
+        if 'budget_normalized_effect' in forecast.columns:
+            effect = forecast.loc[forecast['ds'] > last_historical_date, 'budget_normalized_effect']
+            if not effect.empty:
+                avg_effect = effect.mean()
+                metric_avg = prophet_df['y'].mean()
+                
+                # Only add percent effect if metric mean is not too close to zero
+                if abs(metric_avg) > 0.001:
+                    pct_effect = avg_effect / metric_avg * 100
+                    budget_change_text += f" (~{pct_effect:.1f}% impact)"
         
         # Calculate a position about 20% into the forecast period
         annotation_date = last_historical_date + pd.Timedelta(days=max(1, int(forecast_period * 0.2)))
@@ -75,17 +98,6 @@ def create_forecast_plots(prophet_df, forecast, metric, budget_change_ratio=1.0)
             bordercolor="black",
             borderwidth=1
         )
-    
-    # Uncertainty interval
-    # fig_forecast.add_trace(go.Scatter(
-    #     x=forecast['ds'].tolist() + forecast['ds'].tolist()[::-1],
-    #     y=forecast['yhat_upper'].tolist() + forecast['yhat_lower'].tolist()[::-1],
-    #     fill='toself',
-    #     fillcolor='rgba(0,176,246,0.2)',
-    #     line=dict(color='rgba(255,255,255,0)'),
-    #     hoverinfo="skip",
-    #     showlegend=False
-    # ))
     
     fig_forecast.update_layout(
         title=f'{metric} Forecast' + (f' (Budget: {budget_change_ratio:.2f}x)' if abs(budget_change_ratio - 1.0) > 0.01 else ''),
@@ -131,6 +143,16 @@ def create_forecast_plots(prophet_df, forecast, metric, budget_change_ratio=1.0)
                 name='Budget Effect',
                 line=dict(color='green', width=2)
             ))
+            
+            # Add a zero line for reference
+            fig_comp.add_shape(
+                type="line",
+                x0=forecast['ds'].min(),
+                y0=0,
+                x1=forecast['ds'].max(),
+                y1=0,
+                line=dict(color="lightgray", width=1, dash="dot"),
+            )
         
         fig_comp.update_layout(
             title=f'{metric} Components',

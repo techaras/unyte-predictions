@@ -5,6 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ forecast_title }} - Unyte Predictions</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Elasticity Meter Styles */
+        .elasticity-meter {
+            margin-top: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f9f9f9;
+        }
+        
+        .elasticity-meter h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .elasticity-bar {
+            height: 12px;
+            background: linear-gradient(to right, #4CAF50, #FFEB3B, #F44336);
+            border-radius: 6px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        
+        .elasticity-marker {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: #333;
+            border-radius: 50%;
+            top: 0;
+            transform: translateX(-50%);
+        }
+        
+        .elasticity-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .elasticity-value {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        .elasticity-description {
+            text-align: center;
+            font-style: italic;
+            margin-top: 5px;
+            color: #666;
+        }
+        
+        .budget-impact-high {
+            color: #F44336;
+        }
+        
+        .budget-impact-medium {
+            color: #FF9800;
+        }
+        
+        .budget-impact-low {
+            color: #4CAF50;
+        }
+    </style>
 </head>
 <body>
     <!-- Forecast header section -->
@@ -20,6 +90,7 @@
             </div>
         </div>
     </div>
+    
     <div class="container results-container">
         <!-- Action buttons container -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -32,10 +103,45 @@
             </a>
         </div>
         
+        {% if budget_change_ratio and budget_change_ratio != 1.0 %}
+        <div style="margin-bottom: 30px; background-color: #e8f5e9; padding: 15px; border-radius: 8px;">
+            <h3 style="margin-top: 0; color: #2e7d32;">Budget Impact Summary</h3>
+            <p>Your forecast includes a budget change of <strong>{{ budget_change_ratio|round(2) }}x</strong> the historical average.</p>
+            <p>Each metric responds differently to budget changes based on its elasticity.</p>
+        </div>
+        {% endif %}
+        
         {% if results %}
             {% for metric, result in results.items() %}
                 <div class="result-card">
                     <h2>{{ metric }}</h2>
+                    
+                    {% if result.elasticity and budget_change_ratio != 1.0 %}
+                    <div class="elasticity-meter">
+                        <h4>Budget Sensitivity</h4>
+                        <div class="elasticity-bar">
+                            <div class="elasticity-marker" style="left: {{ result.elasticity.normalized_score * 10 }}%;"></div>
+                        </div>
+                        <div class="elasticity-labels">
+                            <span>Low Impact</span>
+                            <span>Medium Impact</span>
+                            <span>High Impact</span>
+                        </div>
+                        
+                        {% set impact_class = 'budget-impact-low' if result.elasticity.normalized_score < 3.33 else ('budget-impact-medium' if result.elasticity.normalized_score < 6.67 else 'budget-impact-high') %}
+                        
+                        <div class="elasticity-value {{ impact_class }}">
+                            {{ result.elasticity.response }}
+                        </div>
+                        <div class="elasticity-description">
+                            {% if result.elasticity.coefficient > 0 %}
+                                A 10% budget increase is predicted to yield around {{ (result.elasticity.coefficient * 0.1 * 100)|round(1) }}% increase in {{ metric }}.
+                            {% else %}
+                                {{ metric }} shows a negative correlation with budget increases.
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
                     
                     <div class="forecast-plots">
                         <div class="plot">
@@ -82,5 +188,12 @@
             </div>
         {% endif %}
     </div>
+    
+    <script>
+        // Add any JavaScript needed for the elasticity visualizations
+        document.addEventListener('DOMContentLoaded', function() {
+            // Any interactive elements can be initialized here
+        });
+    </script>
 </body>
 </html>
