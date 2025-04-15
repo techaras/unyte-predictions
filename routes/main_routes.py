@@ -122,12 +122,29 @@ def process():
     # Get forecast title
     forecast_title = request.form.get('forecast_title', 'Forecast')
     
-    # Get estimated budget and convert to float for formatting
+    # Get estimated budget and calculate budget change ratio
     try:
+        # Get new budget from form
         estimated_budget = float(request.form.get('estimated_budget', 0))
+        
+        # Get original budget data from session
+        budget_data = session.get('budget_data', {})
+        daily_average = budget_data.get('dailyAverage', 0)
+        
+        # Calculate total original budget for the forecast period
+        original_total_budget = daily_average * forecast_period
+        
+        # Calculate budget change ratio (default to 1.0 if original budget is too small)
+        if original_total_budget > 1.0:  # Avoid division by very small numbers
+            budget_change_ratio = estimated_budget / original_total_budget
+        else:
+            budget_change_ratio = 1.0
+            
+        logger.info(f"Original daily budget: {daily_average}, Total original budget: {original_total_budget}")
+        logger.info(f"New total budget: {estimated_budget}, Budget change ratio: {budget_change_ratio}")
     except ValueError:
         estimated_budget = 0
-    logger.info(f"Estimated budget for campaign: {estimated_budget}")
+        budget_change_ratio = 1.0
     
     # Get currency from budget_data in session
     budget_data = session.get('budget_data', {})
@@ -180,8 +197,14 @@ def process():
         # Prepare data for forecasting
         df = prepare_data_for_forecast(file_path, file_format, date_col, date_format, selected_metrics)
         
-        # Generate forecasts
-        results = generate_forecast(df, date_col, selected_metrics, forecast_period)
+        # Generate forecasts with budget change ratio
+        results = generate_forecast(
+            df, 
+            date_col, 
+            selected_metrics, 
+            forecast_period, 
+            budget_change_ratio=budget_change_ratio
+        )
         
         # Clean up the file
         os.remove(file_path)
@@ -193,7 +216,8 @@ def process():
             platform_display, 
             estimated_budget, 
             currency, 
-            date_range
+            date_range,
+            budget_change_ratio=budget_change_ratio  # Add budget change info to saved data
         )
         
         # Only store the forecast ID in session
@@ -216,7 +240,8 @@ def process():
                               budget=estimated_budget,
                               currency=currency,
                               date_range=date_range,
-                              forecast_id=forecast_id)  # Pass forecast ID to template
+                              budget_change_ratio=budget_change_ratio,  # Pass budget change to template
+                              forecast_id=forecast_id)
     
     except Exception as e:
         error_message = f'Error processing file: {str(e)}'

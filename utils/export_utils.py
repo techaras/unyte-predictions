@@ -7,6 +7,13 @@ from datetime import datetime
 import pandas as pd
 import uuid
 
+class CustomJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that can handle pandas Timestamp objects."""
+    def default(self, obj):
+        if isinstance(obj, (pd.Timestamp, datetime)):
+            return obj.isoformat()
+        return super().default(obj)
+
 def extract_forecast_data(results):
     """Extract just the necessary forecast data for CSV export."""
     extracted_data = {}
@@ -14,59 +21,64 @@ def extract_forecast_data(results):
     for metric_name, metric_data in results.items():
         forecast_values = []
         for row in metric_data['forecast']:
+            # Handle both string dates and Timestamp objects
+            date_value = row['ds']
+            if isinstance(date_value, pd.Timestamp):
+                date_str = date_value.strftime('%Y-%m-%d')
+            elif isinstance(date_value, str):
+                date_str = date_value
+            else:
+                date_str = str(date_value)
+                
             forecast_values.append({
-                'date': row['ds'].strftime('%Y-%m-%d'),
+                'date': date_str,
                 'value': float(row['yhat'])
             })
         extracted_data[metric_name] = forecast_values
     
     return extracted_data
 
-def save_forecast_data(results, forecast_title, platform, budget, currency, date_range):
-    """Save forecast data to a temporary file and return the file id."""
-    # Extract just the data needed for CSV
-    extracted_data = extract_forecast_data(results)
-    
-    # Create a unique ID for this forecast
+def save_forecast_data(results, forecast_title, platform_display, estimated_budget, currency, date_range, budget_change_ratio=1.0):
+    """
+    Save forecast data to a temporary file and return a unique ID.
+    """
+    # Generate a unique ID for this forecast
     forecast_id = str(uuid.uuid4())
     
-    # Prepare metadata
-    metadata = {
-        'forecast_title': forecast_title,
-        'platform': platform,
-        'budget': budget,
-        'currency': currency,
-        'date_range': date_range,
-        'generated_on': datetime.now().strftime('%Y-%m-%d'),
-        'forecast_id': forecast_id
+    # Collect all data
+    forecast_data = {
+        'metadata': {
+            'forecast_title': forecast_title,
+            'platform': platform_display,
+            'budget': estimated_budget,
+            'currency': currency,
+            'date_range': date_range,
+            'budget_change_ratio': budget_change_ratio,
+            'created_at': datetime.now().isoformat()
+        },
+        'results': results
     }
     
-    # Combine data and metadata
-    save_data = {
-        'metadata': metadata,
-        'results': extracted_data
-    }
-    
-    # Create temp directory if it doesn't exist
-    temp_dir = os.path.join(tempfile.gettempdir(), 'unyte_forecasts')
+    # Save to temporary file using the custom JSON encoder
+    temp_dir = 'temp_forecasts'
     os.makedirs(temp_dir, exist_ok=True)
+    filepath = os.path.join(temp_dir, f"{forecast_id}.json")
     
-    # Save to temporary file
-    temp_file_path = os.path.join(temp_dir, f"{forecast_id}.json")
-    with open(temp_file_path, 'w') as f:
-        json.dump(save_data, f)
+    with open(filepath, 'w') as f:
+        json.dump(forecast_data, f, cls=CustomJSONEncoder)
     
     return forecast_id
 
 def load_forecast_data(forecast_id):
     """Load forecast data from a temporary file."""
-    temp_dir = os.path.join(tempfile.gettempdir(), 'unyte_forecasts')
-    temp_file_path = os.path.join(temp_dir, f"{forecast_id}.json")
+    temp_dir = 'temp_forecasts'  # Changed from tempfile.gettempdir()/unyte_forecasts to match save_forecast_data
     
-    if not os.path.exists(temp_file_path):
+    filepath = os.path.join(temp_dir, f"{forecast_id}.json")
+    
+    if not os.path.exists(filepath):
         return None
     
-    with open(temp_file_path, 'r') as f:
+    with open(filepath, 'r') as f:
         return json.load(f)
 
 def generate_forecast_csv_from_file(forecast_id):
@@ -86,7 +98,9 @@ def generate_forecast_csv_from_file(forecast_id):
     
     # Extract metadata
     metadata = forecast_data['metadata']
-    results = forecast_data['results']
+    
+    # Convert results to the extracted format needed for CSV
+    results = extract_forecast_data(forecast_data['results'])
     
     # Parse date range
     start_date, end_date = [date.strip() for date in metadata['date_range'].split('-')]
@@ -110,7 +124,7 @@ def generate_forecast_csv_from_file(forecast_id):
     writer.writerow(['forecast_period', f'{forecast_period} days'])
     writer.writerow(['start_date', start_date])
     writer.writerow(['end_date', end_date])
-    writer.writerow(['generated_on', metadata['generated_on']])
+    writer.writerow(['generated_on', metadata.get('created_at', datetime.now().isoformat())])  # Fixed key name
     
     # Prepare data rows
     if not results:
