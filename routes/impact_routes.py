@@ -2,7 +2,7 @@ import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from config import logger, UPLOAD_FOLDER
 from utils.file_utils import allowed_file, generate_unique_filename
-from services.impact_service import process_impact_files, calculate_impact, simulate_budget_change
+from services.impact_service import process_impact_files
 import json
 
 impact = Blueprint('impact', __name__)
@@ -83,22 +83,22 @@ def dashboard():
         flash(error_message)
         return redirect(url_for('impact.index'))
 
-@impact.route('/impact/simulate', methods=['POST'])
-def simulate():
-    """Simulate budget changes and return updated impact data."""
+@impact.route('/impact/refresh', methods=['POST'])
+def refresh():
+    """Refresh metric data without budget changes."""
     if 'impact_data' not in session:
         return jsonify({'error': 'No impact data available'}), 400
     
     try:
         impact_data = json.loads(session['impact_data'])
-        budget_changes = request.json.get('budget_changes', {})
         
-        # Calculate new impact based on budget changes
-        updated_data = simulate_budget_change(impact_data, budget_changes)
+        # Simply return the current data without modifications
+        # In a real implementation, you might recalculate metrics or refresh from source
+        # but without budget change functionality
         
-        return jsonify(updated_data)
+        return jsonify(impact_data)
     except Exception as e:
-        logger.error(f'Error in simulation: {str(e)}')
+        logger.error(f'Error in refresh: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
 @impact.route('/impact/cleanup', methods=['POST'])

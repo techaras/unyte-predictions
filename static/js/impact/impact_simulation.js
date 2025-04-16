@@ -36,21 +36,18 @@ function updateMetricDisplays(forecastId, updatedMetrics) {
     });
 }
 
-// Function to simulate budget changes
-async function simulateBudgetChanges(impactData, changes) {
+// Function to refresh metric data
+async function refreshMetricData() {
     try {
-        const response = await fetch('/impact/simulate', {
+        const response = await fetch('/impact/refresh', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                budget_changes: changes
-            })
+            }
         });
         
         if (!response.ok) {
-            throw new Error('Simulation failed');
+            throw new Error('Refresh failed');
         }
         
         // Update the impact data with the response
@@ -61,15 +58,12 @@ async function simulateBudgetChanges(impactData, changes) {
         
         // Update the UI with the new data
         updatedData.forecasts.forEach(forecast => {
-            updateBudgetDisplay(forecast.id, forecast.budget);
             updateMetricDisplays(forecast.id, forecast.metrics);
         });
         
-        updateTotalBudgetDisplay(impactData);
-        
     } catch (error) {
-        console.error('Error simulating budget changes:', error);
-        alert('Failed to simulate budget changes. Please try again.');
+        console.error('Error refreshing metric data:', error);
+        alert('Failed to refresh metric data. Please try again.');
     }
 }
 

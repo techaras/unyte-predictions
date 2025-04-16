@@ -17,8 +17,7 @@ def process_impact_files(uploaded_files):
         dict: Processed impact data
     """
     impact_data = {
-        'forecasts': [],
-        'total_budget': 0
+        'forecasts': []
     }
     
     for index, file_info in enumerate(uploaded_files):
@@ -34,7 +33,6 @@ def process_impact_files(uploaded_files):
                 forecast_id = f"ForecastName {index + 1}"
                 forecast_title = metadata.get('forecast_title', forecast_id)
                 platform = metadata.get('platform', 'Unknown')
-                budget = float(metadata.get('budget', 5000))
                 campaign = extract_campaign_name_from_metadata(metadata, file_info['original_name'])
                 
                 # Extract ALL metrics from the data portion
@@ -51,7 +49,7 @@ def process_impact_files(uploaded_files):
                 if 'end_date' in metadata:
                     end_date = metadata.get('end_date', end_date)
                 
-                logger.info(f"Successfully parsed forecast CSV: {forecast_title}, Platform: {platform}, Budget: {budget}")
+                logger.info(f"Successfully parsed forecast CSV: {forecast_title}, Platform: {platform}")
             else:
                 # Fall back to regular CSV parsing
                 logger.info(f"Not a forecast CSV, trying standard parsing")
@@ -71,9 +69,6 @@ def process_impact_files(uploaded_files):
                 
                 # Extract ALL metrics
                 metrics = extract_all_metrics(df)
-                
-                # Extract budget
-                budget = extract_budget(df)
                 
                 # Generate forecast ID and title
                 forecast_id = f"ForecastName {index + 1}"
@@ -104,9 +99,6 @@ def process_impact_files(uploaded_files):
             except:
                 forecast_days = 90  # Fallback if date parsing fails
             
-            # Add to total budget
-            impact_data['total_budget'] += budget
-            
             # Create forecast entry
             forecast_entry = {
                 'id': forecast_id,
@@ -114,8 +106,6 @@ def process_impact_files(uploaded_files):
                 'platform': platform,
                 'campaign': campaign,
                 'metrics': metrics,
-                'budget': budget,
-                'original_budget': budget,  # Keep track of original budget for reset
                 'date_range': {
                     'start': start_date,
                     'end': end_date,
@@ -129,7 +119,7 @@ def process_impact_files(uploaded_files):
             logger.error(f"Error processing file {file_info['original_name']}: {str(e)}")
             # Continue processing other files
     
-    # Calculate initial impact (all zeros since no changes yet)
+    # Initialize metrics
     for forecast in impact_data['forecasts']:
         for metric in forecast['metrics']:
             metric['simulated'] = metric['current']
@@ -150,7 +140,7 @@ def process_impact_files(uploaded_files):
                 'days': 90
             }
     
-    logger.info(f"Processed {len(impact_data['forecasts'])} forecasts with total budget: {impact_data['total_budget']}")
+    logger.info(f"Processed {len(impact_data['forecasts'])} forecasts")
     return impact_data
 
 def parse_forecast_csv(file_path):
@@ -187,7 +177,7 @@ def parse_forecast_csv(file_path):
                     break
             
             # Check if we have standard metadata keys
-            standard_keys = ['forecast_title', 'platform', 'budget', 'currency']
+            standard_keys = ['forecast_title', 'platform', 'currency']
             found_keys = [key for key in standard_keys if key in metadata]
             
             if len(found_keys) >= 2:  # If we found at least 2 standard keys, it's our format
@@ -611,193 +601,3 @@ def extract_campaign_name(df, filename):
         return 'All Campaigns'
     
     return name
-
-def extract_budget(df):
-    """
-    Extract or calculate budget from the data.
-    
-    Args:
-        df: DataFrame containing the data
-        
-    Returns:
-        float: Budget value
-    """
-    # Try to find budget or cost information
-    budget_cols = ['Budget', 'Campaign budget', 'Ad set budget', 'Daily budget']
-    cost_cols = ['Cost', 'Spend', 'Amount spent']
-    
-    # Try budget columns first
-    for col in budget_cols:
-        if col in df.columns:
-            try:
-                # Get daily budget and multiply by 30 for monthly budget
-                daily_budget = pd.to_numeric(df[col].iloc[0], errors='coerce')
-                if not pd.isna(daily_budget) and daily_budget > 0:
-                    return round(daily_budget * 30, -2)  # Round to nearest 100
-            except:
-                pass
-    
-    # Try cost columns next
-    for col in cost_cols:
-        if col in df.columns:
-            try:
-                # Sum costs and multiply by factor to estimate budget
-                total_cost = pd.to_numeric(df[col], errors='coerce').sum()
-                if not pd.isna(total_cost) and total_cost > 0:
-                    # Round to nearest 500
-                    return round(total_cost * 1.2 / 500) * 500
-            except:
-                pass
-    
-    # Generate a reasonable random budget if nothing else works
-    return float(np.random.choice([3500, 4000, 5000, 6000, 7500]))
-
-def calculate_impact(original_value, budget_change_percent):
-    """
-    Calculate impact of budget change on metrics.
-    
-    Args:
-        original_value: Original metric value
-        budget_change_percent: Percentage change in budget (-100 to +100)
-        
-    Returns:
-        tuple: (new_value, impact_percent)
-    """
-    # Simplified elasticity model
-    if budget_change_percent < 0:
-        if budget_change_percent <= -90:
-            # Near-complete budget reduction (very high negative elasticity)
-            elasticity = 0.95
-        elif budget_change_percent <= -75:
-            # Significant budget reduction
-            elasticity = 0.85
-        else:
-            # Moderate budget reduction
-            elasticity = 0.7
-    else:
-        # Positive changes have diminishing returns
-        elasticity = 0.9 if budget_change_percent <= 50 else 0.8
-    
-    # Calculate impact (with diminishing returns for large increases)
-    impact_factor = (1 + budget_change_percent/100) ** elasticity
-    
-    new_value = original_value * impact_factor
-    impact_percent = (new_value - original_value) / original_value * 100 if original_value > 0 else 0
-    
-    return new_value, impact_percent
-
-def simulate_budget_change(impact_data, budget_changes):
-    """
-    Simulate the impact of budget changes on metrics.
-    
-    Args:
-        impact_data: Original impact analysis data
-        budget_changes: Dictionary of forecast ID to percentage change
-        
-    Returns:
-        dict: Updated impact data
-    """
-    # Make a deep copy to avoid modifying the original
-    updated_data = json.loads(json.dumps(impact_data))
-    
-    for forecast in updated_data['forecasts']:
-        # Get the budget change for this forecast
-        forecast_id = forecast['id']
-        if forecast_id in budget_changes:
-            change_percent = budget_changes[forecast_id]
-            
-            # Update budget
-            original_budget = forecast['original_budget']
-            new_budget = original_budget * (1 + change_percent/100)
-            forecast['budget'] = round(new_budget, 2)
-            
-            # Update metrics
-            for metric in forecast['metrics']:
-                metric_name = metric['name'].lower()
-                
-                # More flexible pattern matching for original column names
-                is_roas_metric = any(term in metric_name for term in ['roas', 'return on ad', 'return on spend'])
-                is_roi_metric = any(term in metric_name for term in ['roi', 'return on invest'])
-                is_cost_per_metric = any(term in metric_name for term in ['cpc', 'cpm', 'cpa', 'cost per', 'cost / '])
-                is_rate_metric = any(term in metric_name for term in ['rate', 'percentage', 'ctr', 'cvr', 'conv. rate', '%'])
-                is_ctr_metric = any(term in metric_name for term in ['ctr', 'click through', 'click-through', 'click rate'])
-                is_conv_rate_metric = any(term in metric_name for term in ['conv rate', 'conversion rate', 'cvr', 'conv. rate'])
-                
-                if is_roas_metric or is_roi_metric:
-                    # ROAS/ROI generally doesn't scale linearly with budget
-                    # It often decreases with budget increases
-                    if change_percent > 0:
-                        # Diminishing returns for ROAS with budget increases
-                        decrease_factor = 1 - (change_percent/100) * 0.1
-                        new_value = metric['current'] * decrease_factor
-                    else:
-                        # Potential improvement with budget decreases (more selective spending)
-                        # For extreme budget reductions (>90%), ROAS becomes less predictable
-                        if change_percent <= -90:
-                            # Very high reduction can lead to unpredictable ROAS
-                            variation = (np.random.random() - 0.5) * 0.4  # +/- 20% random variation
-                            improvement_factor = 1 - (change_percent/100) * (0.05 + variation)
-                        else:
-                            improvement_factor = 1 - (change_percent/100) * 0.05
-                        new_value = metric['current'] * improvement_factor
-                    
-                    impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
-                    
-                    # Format the simulated value based on metric type
-                    if is_roas_metric:
-                        metric['simulated'] = round(new_value, 1)  # 1 decimal place for ROAS
-                    else:
-                        metric['simulated'] = round(new_value)  # ROI as integer
-                    
-                    metric['impact'] = round(impact_percent, 1)
-                elif is_cost_per_metric:
-                    # Cost metrics often move inversely to budget due to auction dynamics
-                    if change_percent > 0:
-                        # Cost per metrics often increase slightly with budget
-                        increase_factor = 1 + (change_percent/100) * 0.05
-                        new_value = metric['current'] * increase_factor
-                    else:
-                        # Cost per metrics might decrease with budget reduction
-                        decrease_factor = 1 + (change_percent/100) * 0.03
-                        new_value = metric['current'] * decrease_factor
-                    
-                    impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
-                    
-                    # Format the simulated value - cost metrics are integers
-                    metric['simulated'] = round(new_value)
-                    
-                    metric['impact'] = round(impact_percent, 1)
-                elif is_rate_metric:
-                    # Rate metrics often have minimal change with budget
-                    if change_percent > 0:
-                        # Slight decrease in rate metrics with higher budget
-                        factor = 1 - (change_percent/100) * 0.03
-                        new_value = metric['current'] * factor
-                    else:
-                        # Slight increase in rate metrics with lower budget
-                        factor = 1 - (change_percent/100) * 0.02
-                        new_value = metric['current'] * factor
-                    
-                    impact_percent = (new_value - metric['current']) / metric['current'] * 100 if metric['current'] > 0 else 0
-                    
-                    # Format the simulated value - only CTR and Conversion Rate have decimals
-                    if is_ctr_metric or is_conv_rate_metric:
-                        metric['simulated'] = round(new_value, 2)  # 2 decimal places
-                    else:
-                        metric['simulated'] = round(new_value)  # Other rate metrics as integers
-                    
-                    metric['impact'] = round(impact_percent, 1)
-                else:
-                    # For other metrics, use the elasticity model
-                    new_value, impact_percent = calculate_impact(metric['current'], change_percent)
-                    
-                    # Format the simulated value - all other metrics as integers
-                    metric['simulated'] = round(new_value)
-                    
-                    metric['impact'] = round(impact_percent, 1)
-    
-    # Update total budget
-    total_budget = sum(forecast['budget'] for forecast in updated_data['forecasts'])
-    updated_data['total_budget'] = round(total_budget, 2)
-    
-    return updated_data
