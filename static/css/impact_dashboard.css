@@ -641,3 +641,35 @@ input:checked + .toggle-slider:before {
     text-align: right;
     padding-right: 20px;
 }
+
+/* Budget Summary Styling */
+.budget-summary-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 15px 20px;
+    background-color: #f0f4f8;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.budget-summary-label {
+    font-weight: 600;
+    color: #34495e;
+    margin-right: 10px;
+}
+
+.budget-summary-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #2e7d32;
+    padding: 5px 15px;
+    background-color: white;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+#aggregate-budget-currency {
+    margin-right: 2px;
+}

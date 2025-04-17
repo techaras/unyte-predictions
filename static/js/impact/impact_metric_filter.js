@@ -121,6 +121,10 @@ function applyMetricFilters() {
     if (selectedMetrics.length === 0) {
         tableBody.innerHTML = '<tr class="no-metrics-message"><td colspan="8">No metrics selected. Please select at least one metric from the dropdown.</td></tr>';
         updateMetricCount(0);
+        // Still update the aggregate budget even with no metrics
+        if (typeof updateAggregateBudget === 'function') {
+            updateAggregateBudget();
+        }
         return;
     }
     
@@ -207,6 +211,11 @@ function applyMetricFilters() {
     
     // Update metric count
     updateMetricCount(selectedMetrics.length);
+    
+    // Update the aggregate budget after rebuilding the table
+    if (typeof updateAggregateBudget === 'function') {
+        updateAggregateBudget();
+    }
 }
 
 function updateMetricCount(count) {

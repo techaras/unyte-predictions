@@ -9,8 +9,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize date range display
     updateDateRangeDisplay(impactData);
     
+    // Calculate and display aggregate budget
+    updateAggregateBudget();
+    
     // Setup cleanup handler
     window.addEventListener('beforeunload', performCleanup);
 });
-
-// Note: setupResetButton has been removed as it was primarily for budget functionality
