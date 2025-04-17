@@ -20,8 +20,8 @@ function updateAggregateBudget() {
     if (impactData && impactData.forecasts) {
         impactData.forecasts.forEach(forecast => {
             if (forecast.budget && forecast.budget.value) {
-                // Add to the total
-                totalBudget += parseFloat(forecast.budget.value);
+                // Add to the total using Math.floor to match |int filter behavior
+                totalBudget += Math.floor(parseFloat(forecast.budget.value));
                 
                 // Use the currency from the data (take the first non-empty one)
                 if (forecast.budget.currency && !hasBudgetData) {
@@ -34,7 +34,7 @@ function updateAggregateBudget() {
     
     // Update the DOM
     currencyElement.textContent = currency;
-    valueElement.textContent = Math.round(totalBudget).toLocaleString();
+    valueElement.textContent = totalBudget.toLocaleString();
 }
 
 // Make the function available globally
