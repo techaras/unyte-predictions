@@ -634,3 +634,10 @@ input:checked + .toggle-slider:before {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+.budget-cell {
+    font-weight: 600;
+    color: #2e7d32;
+    text-align: right;
+    padding-right: 20px;
+}

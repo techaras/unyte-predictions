@@ -28,7 +28,17 @@ def process_impact_files(uploaded_files):
             # First, check if this is a forecast CSV format (with metadata at the top)
             is_forecast_csv, metadata, data_df = parse_forecast_csv(file_path)
             
+            # Initialize budget data with defaults
+            budget_value = None
+            budget_currency = '€'  # Default currency
+            
             if is_forecast_csv:
+                # Extract budget information from metadata
+                if 'budget' in metadata:
+                    budget_value = float(metadata.get('budget', 0))
+                if 'currency' in metadata:
+                    budget_currency = metadata.get('currency', '€')
+                
                 # Extract information from the parsed metadata and data
                 forecast_id = f"ForecastName {index + 1}"
                 forecast_title = metadata.get('forecast_title', forecast_id)
@@ -70,6 +80,27 @@ def process_impact_files(uploaded_files):
                 # Extract ALL metrics
                 metrics = extract_all_metrics(df)
                 
+                # Try to find budget data in the file
+                try:
+                    # Look for columns with budget/cost keywords
+                    cost_cols = [col for col in df.columns if any(term in col.lower() for term in 
+                                ['budget', 'cost', 'spend', 'amount'])]
+                    
+                    if cost_cols:
+                        # Use the first cost column found
+                        total_cost = df[cost_cols[0]].sum()
+                        budget_value = float(total_cost)
+                        
+                        # Try to detect currency from column name
+                        if any(currency in cost_cols[0].lower() for currency in ['eur', '€']):
+                            budget_currency = '€'
+                        elif any(currency in cost_cols[0].lower() for currency in ['usd', '$']):
+                            budget_currency = '$'
+                        elif any(currency in cost_cols[0].lower() for currency in ['gbp', '£']):
+                            budget_currency = '£'
+                except Exception as e:
+                    logger.warning(f"Could not extract budget information: {str(e)}")
+                
                 # Generate forecast ID and title
                 forecast_id = f"ForecastName {index + 1}"
                 forecast_title = forecast_id
@@ -110,6 +141,11 @@ def process_impact_files(uploaded_files):
                     'start': start_date,
                     'end': end_date,
                     'days': forecast_days
+                },
+                # Add budget information to the forecast entry
+                'budget': {
+                    'value': budget_value,
+                    'currency': budget_currency
                 }
             }
             

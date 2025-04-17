@@ -27,6 +27,7 @@
             <th>Current</th>
             <th>Simulated</th>
             <th>Impact</th>
+            <th>Budget</th>  <!-- New Budget column header -->
         </tr>
     </thead>
     <tbody id="impact-table-body">
@@ -60,6 +61,13 @@
                         </td>
                         <td rowspan="1" class="impact-value {% if metric.impact > 0 %}impact-positive{% elif metric.impact < 0 %}impact-negative{% else %}impact-neutral{% endif %}" data-metric="{{ metric.name }}">
                             {{ '%.1f'|format(metric.impact|float) }}%
+                        </td>
+                        <td rowspan="{{ forecast.metrics|length }}" class="budget-cell">
+                            {% if forecast.budget %}
+                                {{ forecast.budget.currency }}{{ forecast.budget.value|int }}
+                            {% else %}
+                                --
+                            {% endif %}
                         </td>
                     {% else %}
                         <td>{{ metric.name }}</td>
