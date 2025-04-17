@@ -1,58 +1,69 @@
 // Function to update budget and redistribute the difference to other forecasts
 function updateBudget(input) {
     const forecastId = input.dataset.forecastId;
-    const newValue = parseInt(input.value) || 0;
-    
-    // Find the forecast being updated
+
+    // 1. Parse the user’s input (default 0) and compute the current total budget
+    let newValue = parseInt(input.value, 10) || 0;
+    const totalBudget = impactData.forecasts.reduce((sum, f) => {
+        if (f.budget && f.budget.value != null) {
+            return sum + Math.floor(parseFloat(f.budget.value));
+        }
+        return sum;
+    }, 0);
+
+    // 2. Clamp between 0 and totalBudget, and write it back to the input
+    newValue = Math.max(0, Math.min(newValue, totalBudget));
+    input.value = newValue;
+
+    // 3. Now proceed as before
     const forecast = impactData.forecasts.find(f => f.id === forecastId);
     if (!forecast || !forecast.budget) {
         console.error('Forecast or budget not found');
         return;
     }
-    
-    // Calculate difference from previous value
+
     const previousValue = parseFloat(forecast.budget.value);
     const difference = previousValue - newValue;
-    
-    // If there's no change, exit early
+
+    // No meaningful change?
     if (Math.abs(difference) < 0.01) return;
-    
-    // Get all other forecasts with budgets
-    const otherForecasts = impactData.forecasts.filter(f => 
-        f.id !== forecastId && f.budget && f.budget.value);
-    
-    // If no other forecasts, just update the current one
+
+    const otherForecasts = impactData.forecasts.filter(f =>
+        f.id !== forecastId && f.budget && f.budget.value
+    );
+
+    // If it’s the only one, just set and exit
     if (otherForecasts.length === 0) {
         forecast.budget.value = newValue;
         updateAggregateBudget();
         return;
     }
-    
-    // Calculate sum of other forecasts' budgets
-    const otherForecastsSum = otherForecasts.reduce((sum, f) => 
-        sum + parseFloat(f.budget.value), 0);
-    
-    // Update the current forecast's budget
+
+    // Sum of the others
+    const otherForecastsSum = otherForecasts.reduce((sum, f) =>
+        sum + parseFloat(f.budget.value), 0
+    );
+
+    // Update this forecast
     forecast.budget.value = newValue;
-    
-    // Redistribute the difference proportionally to other forecasts
+
+    // Proportionally redistribute the difference
     otherForecasts.forEach(f => {
-        // Calculate the proportion this forecast should get
         const proportion = parseFloat(f.budget.value) / otherForecastsSum;
-        
-        // Add the proportional share of the difference
         const oldBudget = parseFloat(f.budget.value);
         const updatedBudget = oldBudget + (difference * proportion);
         f.budget.value = updatedBudget;
-        
-        // Update the input field if it exists in the DOM
-        const inputField = document.querySelector(`.budget-input[data-forecast-id="${f.id}"]`);
+
+        // Reflect in any visible input
+        const inputField = document.querySelector(
+          `.budget-input[data-forecast-id="${f.id}"]`
+        );
         if (inputField) {
             inputField.value = Math.floor(updatedBudget);
         }
     });
-    
-    // Update the aggregate budget display (should remain the same)
+
+    // Finally, refresh the total (it stays constant)
     updateAggregateBudget();
 }
 
