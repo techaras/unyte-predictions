@@ -119,12 +119,10 @@ function applyMetricFilters() {
     
     // If we have no metrics selected, show message and return
     if (selectedMetrics.length === 0) {
-        tableBody.innerHTML = '<tr class="no-metrics-message"><td colspan="7">No metrics selected. Please select at least one metric from the dropdown.</td></tr>';
+        tableBody.innerHTML = '<tr class="no-metrics-message"><td colspan="8">No metrics selected. Please select at least one metric from the dropdown.</td></tr>';
         updateMetricCount(0);
         return;
     }
-    
-    // The truly simple solution: Re-render the table completely based on the original data
     
     // 1. Clear the table
     tableBody.innerHTML = '';
@@ -187,6 +185,17 @@ function applyMetricFilters() {
                 <td class="metric-simulated" data-metric="${metric.name}">${simulatedValue}</td>
                 <td class="impact-value ${impactClass}" data-metric="${metric.name}">${parseFloat(metric.impact).toFixed(1)}%</td>
             `;
+            
+            // Add budget cell only for the first metric in each forecast
+            if (index === 0) {
+                rowHtml += `
+                    <td rowspan="${filteredMetrics.length}" class="budget-cell">
+                        ${forecast.budget && forecast.budget.value ? 
+                          `${forecast.budget.currency}${parseInt(forecast.budget.value)}` : 
+                          '--'}
+                    </td>
+                `;
+            }
             
             // Set the row HTML
             row.innerHTML = rowHtml;
