@@ -673,3 +673,19 @@ input:checked + .toggle-slider:before {
 #aggregate-budget-currency {
     margin-right: 2px;
 }
+
+.budget-input {
+    width: 80px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 4px;
+    font-weight: 600;
+    color: #2e7d32;
+    text-align: right;
+    margin-left: 2px;
+}
+
+.budget-input:focus {
+    border-color: #3498db;
+    outline: none;
+}

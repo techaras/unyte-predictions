@@ -1,3 +1,18 @@
+// Function to update budget when changed
+function updateBudget(input) {
+    const forecastId = input.dataset.forecastId;
+    const newValue = parseInt(input.value) || 0;
+    
+    // Update in the data structure
+    const forecast = impactData.forecasts.find(f => f.id === forecastId);
+    if (forecast && forecast.budget) {
+        forecast.budget.value = newValue;
+    }
+    
+    // Update aggregate budget
+    updateAggregateBudget();
+}
+
 // Calculate and display the aggregate budget
 function updateAggregateBudget() {
     // Get references to the DOM elements
@@ -37,5 +52,6 @@ function updateAggregateBudget() {
     valueElement.textContent = totalBudget.toLocaleString();
 }
 
-// Make the function available globally
+// Make the functions available globally
+window.updateBudget = updateBudget;
 window.updateAggregateBudget = updateAggregateBudget;
