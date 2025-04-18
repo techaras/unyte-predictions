@@ -1,8 +1,34 @@
+// Store original budget and metric values for calculations
+function storeOriginalValues() {
+    if (!impactData || !impactData.forecasts) return;
+    
+    // Store original budgets
+    impactData.originalBudgets = {};
+    
+    // Store original metric values
+    impactData.originalMetrics = {};
+    
+    impactData.forecasts.forEach(forecast => {
+        // Store original budget
+        if (forecast.budget && forecast.budget.value !== null && forecast.budget.value !== undefined) {
+            impactData.originalBudgets[forecast.id] = parseFloat(forecast.budget.value);
+        }
+        
+        // Store original metric values
+        if (forecast.metrics && forecast.metrics.length > 0) {
+            impactData.originalMetrics[forecast.id] = forecast.metrics.map(metric => ({
+                name: metric.name,
+                value: parseFloat(metric.current)
+            }));
+        }
+    });
+}
+
 // Function to update budget and redistribute the difference to other forecasts
 function updateBudget(input) {
     const forecastId = input.dataset.forecastId;
 
-    // 1. Parse the user’s input (default 0) and compute the current total budget
+    // 1. Parse the user's input (default 0) and compute the current total budget
     let newValue = parseInt(input.value, 10) || 0;
     const totalBudget = impactData.forecasts.reduce((sum, f) => {
         if (f.budget && f.budget.value != null) {
@@ -42,19 +68,26 @@ function updateBudget(input) {
 
     // 6. If everyone else is at zero, give the full difference to the first one
     if (otherForecastsSum === 0 && otherForecasts.length > 0) {
+        // Save the old budget for the first other forecast
+        const f0 = otherForecasts[0];
+        const f0OldBudget = parseFloat(f0.budget.value);
+        
         // update this forecast
         forecast.budget.value = newValue;
-
+        
         // hand the entire difference to the first other forecast
-        const f0 = otherForecasts[0];
-        f0.budget.value = parseFloat(f0.budget.value) + difference;
+        f0.budget.value = f0OldBudget + difference;
 
         // reflect in the UI
         const input0 = document.querySelector(
             `.budget-input[data-forecast-id="${f0.id}"]`
         );
         if (input0) input0.value = Math.floor(f0.budget.value);
-
+        
+        // Recalculate metrics for both forecasts
+        recalculateMetricsForBudgetChange(forecastId, previousValue, newValue);
+        recalculateMetricsForBudgetChange(f0.id, f0OldBudget, f0.budget.value);
+        
         updateAggregateBudget();
         return;
     }
@@ -62,9 +95,19 @@ function updateBudget(input) {
     // 7. Otherwise, proceed with proportional redistribution
     //    first update this forecast
     forecast.budget.value = newValue;
+    
+    // Recalculate metrics for the current forecast
+    recalculateMetricsForBudgetChange(forecastId, previousValue, newValue);
 
+    // Store old budgets for other forecasts before updating
+    const oldBudgets = {};
     otherForecasts.forEach(f => {
-        const oldBudget = parseFloat(f.budget.value);
+        oldBudgets[f.id] = parseFloat(f.budget.value);
+    });
+
+    // Now update other forecasts with proportional redistribution
+    otherForecasts.forEach(f => {
+        const oldBudget = oldBudgets[f.id];
         const proportion = oldBudget / otherForecastsSum;
         const updatedBudget = oldBudget + (difference * proportion);
         f.budget.value = updatedBudget;
@@ -76,6 +119,9 @@ function updateBudget(input) {
         if (inputField) {
             inputField.value = Math.floor(updatedBudget);
         }
+        
+        // Recalculate metrics for this forecast
+        recalculateMetricsForBudgetChange(f.id, oldBudget, updatedBudget);
     });
 
     // 8. Finally, refresh the total (it stays constant)
@@ -84,16 +130,26 @@ function updateBudget(input) {
 
 // Store original budget values for reset functionality
 function storeOriginalBudgets() {
-    if (!impactData || !impactData.forecasts) return;
+    console.log("=== STORING ORIGINAL BUDGETS ===");
+    
+    if (!impactData || !impactData.forecasts) {
+        console.error("No impact data or forecasts found");
+        return;
+    }
     
     impactData.originalBudgets = {};
     
     impactData.forecasts.forEach(forecast => {
-        if (forecast.budget && forecast.budget.value) {
+        if (forecast.budget && forecast.budget.value !== null && forecast.budget.value !== undefined) {
             // Store the original values in a separate object to prevent accidental modification
             impactData.originalBudgets[forecast.id] = parseFloat(forecast.budget.value);
+            console.log(`Stored original budget for ${forecast.id}: ${impactData.originalBudgets[forecast.id]}`);
+        } else {
+            console.log(`No budget found for forecast ${forecast.id}`);
         }
     });
+    
+    console.log("Original budgets stored:", impactData.originalBudgets);
 }
 
 // Reset all budgets to original values
@@ -113,12 +169,31 @@ function resetBudgets() {
     impactData.forecasts.forEach(forecast => {
         if (forecast.budget && impactData.originalBudgets[forecast.id] !== undefined) {
             const originalValue = impactData.originalBudgets[forecast.id];
-            forecast.budget.value = originalValue;
+            const currentValue = parseFloat(forecast.budget.value);
             
-            // Update the input field if it exists
-            const inputField = document.querySelector(`.budget-input[data-forecast-id="${forecast.id}"]`);
-            if (inputField) {
-                inputField.value = Math.floor(originalValue);
+            // Only update if there's a change
+            if (Math.abs(currentValue - originalValue) > 0.01) {
+                forecast.budget.value = originalValue;
+                
+                // Update the input field if it exists
+                const inputField = document.querySelector(`.budget-input[data-forecast-id="${forecast.id}"]`);
+                if (inputField) {
+                    inputField.value = Math.floor(originalValue);
+                }
+                
+                // Reset metrics directly to original values
+                if (impactData.originalMetrics && impactData.originalMetrics[forecast.id]) {
+                    forecast.metrics.forEach(metric => {
+                        const originalMetric = impactData.originalMetrics[forecast.id].find(m => m.name === metric.name);
+                        if (originalMetric) {
+                            metric.simulated = originalMetric.value;
+                            metric.impact = 0; // Reset impact to zero
+                        }
+                    });
+                    
+                    // Update the UI
+                    updateMetricDisplays(forecast.id, forecast.metrics);
+                }
             }
         }
     });

@@ -12,6 +12,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Calculate and display aggregate budget
     updateAggregateBudget();
     
+    // Store original values for budget and metrics
+    storeOriginalValues();
+    
+    // Initialize reset button
+    const resetBtn = document.getElementById('reset-btn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', resetBudgets);
+    }
+    
     // Setup cleanup handler
     window.addEventListener('beforeunload', performCleanup);
 });
