@@ -15,7 +15,7 @@ function updateBudget(input) {
     newValue = Math.max(0, Math.min(newValue, totalBudget));
     input.value = newValue;
 
-    // 3. Now proceed as before
+    // 3. Locate this forecast entry
     const forecast = impactData.forecasts.find(f => f.id === forecastId);
     if (!forecast || !forecast.budget) {
         console.error('Forecast or budget not found');
@@ -28,42 +28,57 @@ function updateBudget(input) {
     // No meaningful change?
     if (Math.abs(difference) < 0.01) return;
 
+    // 4. Include zero‑value buckets in the pool
     const otherForecasts = impactData.forecasts.filter(f =>
-        f.id !== forecastId && f.budget && f.budget.value
+        f.id !== forecastId &&
+        f.budget &&
+        f.budget.value != null      // allow 0
     );
 
-    // If it’s the only one, just set and exit
-    if (otherForecasts.length === 0) {
-        forecast.budget.value = newValue;
-        updateAggregateBudget();
-        return;
-    }
-
-    // Sum of the others
+    // 5. Sum of the others
     const otherForecastsSum = otherForecasts.reduce((sum, f) =>
         sum + parseFloat(f.budget.value), 0
     );
 
-    // Update this forecast
+    // 6. If everyone else is at zero, give the full difference to the first one
+    if (otherForecastsSum === 0 && otherForecasts.length > 0) {
+        // update this forecast
+        forecast.budget.value = newValue;
+
+        // hand the entire difference to the first other forecast
+        const f0 = otherForecasts[0];
+        f0.budget.value = parseFloat(f0.budget.value) + difference;
+
+        // reflect in the UI
+        const input0 = document.querySelector(
+            `.budget-input[data-forecast-id="${f0.id}"]`
+        );
+        if (input0) input0.value = Math.floor(f0.budget.value);
+
+        updateAggregateBudget();
+        return;
+    }
+
+    // 7. Otherwise, proceed with proportional redistribution
+    //    first update this forecast
     forecast.budget.value = newValue;
 
-    // Proportionally redistribute the difference
     otherForecasts.forEach(f => {
-        const proportion = parseFloat(f.budget.value) / otherForecastsSum;
         const oldBudget = parseFloat(f.budget.value);
+        const proportion = oldBudget / otherForecastsSum;
         const updatedBudget = oldBudget + (difference * proportion);
         f.budget.value = updatedBudget;
 
-        // Reflect in any visible input
+        // reflect in the UI
         const inputField = document.querySelector(
-          `.budget-input[data-forecast-id="${f.id}"]`
+            `.budget-input[data-forecast-id="${f.id}"]`
         );
         if (inputField) {
             inputField.value = Math.floor(updatedBudget);
         }
     });
 
-    // Finally, refresh the total (it stays constant)
+    // 8. Finally, refresh the total (it stays constant)
     updateAggregateBudget();
 }
 
