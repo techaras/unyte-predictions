@@ -14,6 +14,8 @@ def create_app():
     
     return app
 
+# Add this line - create a global app instance
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
     app.run(debug=DEBUG)
