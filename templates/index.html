@@ -35,11 +35,19 @@
         .nav-tab:hover:not(.active) {
             background-color: #f1f1f1;
         }
+        
+        .logo {
+            display: block;
+            max-width: 200px;
+            margin: 0 auto 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Unyte Predictions</h1>
+        <div class="header">
+            <img src="{{ url_for('static', filename='images/Unyte-Logo.png') }}" alt="Unyte Predictions Logo" class="logo">
+        </div>
         
         <div class="nav-tabs">
             <a href="{{ url_for('main.index') }}" class="nav-tab active">Forecast</a>
