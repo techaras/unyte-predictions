@@ -830,11 +830,13 @@ input:checked + .toggle-slider:before {
     padding: 20px;
 }
 
-/* Budget slider styling */
+/* Budget slider improvements */
 .budget-slider-container {
     margin-top: 8px;
     width: 100%;
+    position: relative;
 }
+
 .budget-slider {
     -webkit-appearance: none;
     width: 100%;
@@ -844,9 +846,11 @@ input:checked + .toggle-slider:before {
     outline: none;
     opacity: 0.7;
     transition: opacity 0.2s;
-    margin: 5px 0; /* Added vertical margin to help alignment */
-    padding: 0; /* Ensure no padding */
+    margin: 5px 0;
+    padding: 0;
+    cursor: pointer;
 }
+
 /* For WebKit browsers (Chrome, Safari) */
 .budget-slider::-webkit-slider-runnable-track {
     width: 100%;
@@ -858,6 +862,7 @@ input:checked + .toggle-slider:before {
     margin: 0;
     padding: 0;
 }
+
 /* For Firefox */
 .budget-slider::-moz-range-track {
     width: 100%;
@@ -869,9 +874,11 @@ input:checked + .toggle-slider:before {
     margin: 0;
     padding: 0;
 }
+
 .budget-slider:hover {
     opacity: 1;
 }
+
 .budget-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
@@ -882,8 +889,9 @@ input:checked + .toggle-slider:before {
     cursor: pointer;
     border: 2px solid #fff;
     box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
-    margin-top: -5px; /* This properly centers the thumb on the track */
+    margin-top: -5px;
 }
+
 .budget-slider::-moz-range-thumb {
     width: 16px;
     height: 16px;
@@ -892,5 +900,13 @@ input:checked + .toggle-slider:before {
     cursor: pointer;
     border: 2px solid #fff;
     box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
-    margin-top: -5px; /* Same adjustment for Firefox */
+    margin-top: -5px;
+}
+
+/* Add percentage labels */
+.budget-slider-percentage {
+    text-align: center;
+    font-size: 11px;
+    color: #7f8c8d;
+    margin-top: 2px;
 }

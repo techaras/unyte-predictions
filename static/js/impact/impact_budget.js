@@ -247,6 +247,132 @@ function updateAggregateBudget() {
     valueElement.textContent = totalBudget.toLocaleString();
 }
 
+// Function to calculate slider position based on budget percentage
+function updateSliderPosition(forecastId) {
+    if (!impactData || !impactData.forecasts) return;
+    
+    // Calculate total budget
+    const totalBudget = impactData.forecasts.reduce((sum, f) => {
+        if (f.budget && f.budget.value != null) {
+            return sum + parseFloat(f.budget.value);
+        }
+        return sum;
+    }, 0);
+    
+    // Get the forecast
+    const forecast = impactData.forecasts.find(f => f.id === forecastId);
+    if (!forecast || !forecast.budget) return;
+    
+    // Calculate percentage
+    let percentage = 0;
+    if (totalBudget > 0) {
+        percentage = (parseFloat(forecast.budget.value) / totalBudget) * 100;
+    }
+    
+    // Update slider
+    const slider = document.querySelector(`.budget-slider[data-forecast-id="${forecastId}"]`);
+    if (slider) {
+        slider.value = percentage;
+    }
+}
+
+// Function to update all sliders
+function updateAllSliders() {
+    if (!impactData || !impactData.forecasts) return;
+    
+    impactData.forecasts.forEach(forecast => {
+        updateSliderPosition(forecast.id);
+    });
+}
+
+// Function to handle slider changes
+function handleSliderChange(slider) {
+    const forecastId = slider.dataset.forecastId;
+    const newPercentage = parseFloat(slider.value);
+    
+    // Find the forecast
+    const forecast = impactData.forecasts.find(f => f.id === forecastId);
+    if (!forecast || !forecast.budget) return;
+    
+    // Calculate total budget
+    const totalBudget = impactData.forecasts.reduce((sum, f) => {
+        if (f.budget && f.budget.value != null) {
+            return sum + parseFloat(f.budget.value);
+        }
+        return sum;
+    }, 0);
+    
+    // Calculate new budget value based on percentage
+    const newBudgetValue = (newPercentage / 100) * totalBudget;
+    
+    // Update the input field
+    const inputField = document.querySelector(`.budget-input[data-forecast-id="${forecastId}"]`);
+    if (inputField) {
+        inputField.value = Math.floor(newBudgetValue).toLocaleString();
+        // Trigger the existing updateBudget function
+        updateBudget(inputField);
+    }
+}
+
+// Initialize sliders when the page loads
+function initializeSliders() {
+    // Add slider attributes to existing sliders
+    document.querySelectorAll('.budget-slider').forEach(slider => {
+        // Find the corresponding budget input
+        const budgetCell = slider.closest('.budget-cell');
+        if (budgetCell) {
+            const budgetInput = budgetCell.querySelector('.budget-input');
+            if (budgetInput) {
+                const forecastId = budgetInput.dataset.forecastId;
+                slider.setAttribute('data-forecast-id', forecastId);
+                
+                // Add event listener for changes
+                slider.addEventListener('input', function() {
+                    handleSliderChange(this);
+                });
+            }
+        }
+    });
+    
+    // Set initial slider positions
+    updateAllSliders();
+}
+
+// Modify the existing updateBudget function to update sliders
+const originalUpdateBudget = updateBudget;
+updateBudget = function(input) {
+    // Call the original function
+    originalUpdateBudget(input);
+    
+    // Update all sliders after budget changes
+    updateAllSliders();
+};
+
+// Modify the resetBudgets function to update sliders
+const originalResetBudgets = resetBudgets;
+resetBudgets = function() {
+    // Call the original function
+    originalResetBudgets();
+    
+    // Update all sliders after reset
+    updateAllSliders();
+};
+
+// Add initialization to DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait for the impact data to be loaded
+    if (impactData && impactData.forecasts) {
+        initializeSliders();
+    } else {
+        // If data isn't ready yet, wait for it
+        const originalInit = window.onload;
+        window.onload = function() {
+            if (originalInit) originalInit();
+            initializeSliders();
+        };
+    }
+});
+
 // Make the functions available globally
 window.updateBudget = updateBudget;
 window.updateAggregateBudget = updateAggregateBudget;
