@@ -64,11 +64,13 @@
                         </td>
                         <td rowspan="{{ forecast.metrics|length }}" class="budget-cell">
                             {% if forecast.budget %}
-                                <span>{{ forecast.budget.currency }}</span>
-                                <input type="number" class="budget-input" 
-                                       value="{{ forecast.budget.value|int }}" 
-                                       data-forecast-id="{{ forecast.id }}"
-                                       onchange="updateBudget(this)">
+                                <div class="budget-input-container">
+                                    <span class="budget-currency-symbol">{{ forecast.budget.currency }}</span>
+                                    <input type="number" class="budget-input" 
+                                           value="{{ forecast.budget.value|int }}" 
+                                           data-forecast-id="{{ forecast.id }}"
+                                           onchange="updateBudget(this)">
+                                </div>
                             {% else %}
                                 --
                             {% endif %}
