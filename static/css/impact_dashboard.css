@@ -781,12 +781,14 @@ input:checked + .toggle-slider:before {
 
 .insight-header h4 {
     margin: 0 0 5px 0;
-    color: #2c3e50;
+    color: #7f8c8d;  /* Changed to gray */
+    font-weight: normal;  /* Remove default bold from h4 */
 }
 
 .insight-type {
-    font-size: 14px;
-    color: #7f8c8d;
+    font-size: 16px;
+    color: #2c3e50;  /* Changed to dark */
+    font-weight: 600;  /* Add bold weight */
 }
 
 .insight-metrics {
@@ -903,10 +905,20 @@ input:checked + .toggle-slider:before {
     margin-top: -5px;
 }
 
-/* Add percentage labels */
-.budget-slider-percentage {
-    text-align: center;
+/* Add new styles for the slider labels */
+.budget-slider-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 4px;
     font-size: 11px;
     color: #7f8c8d;
-    margin-top: 2px;
+}
+
+.slider-label-start {
+    text-align: left;
+}
+
+.slider-label-end {
+    text-align: right;
 }
