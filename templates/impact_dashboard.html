@@ -15,6 +15,9 @@
   
   {% include "components/impact_table.html" %}
   
+  <!-- TEMPORARY COMPONENT - Aggregated Metrics Insights -->
+  {% include "components/impact_insights.html" %}
+  
   <!-- Hidden element to store impact data for JavaScript -->
   <script type="application/json" id="impact-data-json">
     {{ impact_data|tojson }}
@@ -28,4 +31,6 @@
   <script src="{{ url_for('static', filename='js/impact/impact_budget.js') }}"></script>
   <script src="{{ url_for('static', filename='js/impact/impact_metric_filter.js') }}"></script>
   <script src="{{ url_for('static', filename='js/impact/impact_dashboard.js') }}"></script>
+  <!-- TEMPORARY COMPONENT - Add insights script -->
+  <script src="{{ url_for('static', filename='js/impact/impact_insights.js') }}"></script>
 {% endblock %}

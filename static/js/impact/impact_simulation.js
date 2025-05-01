@@ -130,6 +130,11 @@ function recalculateMetricsForBudgetChange(forecastId, oldBudget, newBudget) {
     
     // Update the UI
     updateMetricDisplays(forecastId, forecast.metrics);
+
+    // TEMPORARY COMPONENT - refresh insights when metrics change
+    if (typeof refreshInsights === 'function') {
+        refreshInsights();
+    }
 }
 
 // Function to refresh metric data

@@ -727,3 +727,105 @@ input:checked + .toggle-slider:before {
     position: absolute;
     right: 8px;
 }
+
+/* Add to static/css/impact_dashboard.css - TEMPORARY COMPONENT STYLES */
+
+/* Temporary insights component */
+.temporary-insights-container {
+    margin-top: 40px;
+    margin-bottom: 30px;
+    border: 2px dashed #27ae60;
+    border-radius: 8px;
+    padding: 20px;
+    background-color: #F8FFF9;
+}
+
+.insights-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.insights-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.temporary-badge {
+    background-color: #27ae60;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.insights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.insight-card {
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.insight-header {
+    margin-bottom: 15px;
+}
+
+.insight-header h4 {
+    margin: 0 0 5px 0;
+    color: #2c3e50;
+}
+
+.insight-type {
+    font-size: 14px;
+    color: #7f8c8d;
+}
+
+.insight-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.metric-value {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.metric-label {
+    font-weight: 500;
+    color: #555;
+}
+
+.metric-number {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.metric-value.impact .metric-number.impact-positive {
+    color: #27ae60;
+}
+
+.metric-value.impact .metric-number.impact-negative {
+    color: #e74c3c;
+}
+
+.metric-value.impact .metric-number.impact-neutral {
+    color: #7f8c8d;
+}
+
+.no-insights {
+    text-align: center;
+    color: #7f8c8d;
+    font-style: italic;
+    padding: 20px;
+}
