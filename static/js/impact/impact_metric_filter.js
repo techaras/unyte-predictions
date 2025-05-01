@@ -170,8 +170,9 @@ function applyMetricFilters() {
                 currentValue = parseFloat(metric.current).toFixed(2);
                 simulatedValue = parseFloat(metric.simulated).toFixed(2);
             } else {
-                currentValue = parseInt(metric.current);
-                simulatedValue = parseInt(metric.simulated);
+                // Add comma formatting for whole numbers
+                currentValue = parseInt(metric.current).toLocaleString();
+                simulatedValue = parseInt(metric.simulated).toLocaleString();
             }
             
             // Determine impact class

@@ -23,4 +23,26 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup cleanup handler
     window.addEventListener('beforeunload', performCleanup);
+    
+    // Add formatting for budget inputs
+    document.addEventListener('focus', function(e) {
+        if (e.target.classList.contains('budget-input')) {
+            // Remove commas on focus to allow editing
+            e.target.value = e.target.value.replace(/,/g, '');
+        }
+    }, true);
+    
+    document.addEventListener('blur', function(e) {
+        if (e.target.classList.contains('budget-input')) {
+            // Add commas on blur
+            let value = parseInt(e.target.value.replace(/,/g, ''), 10) || 0;
+            e.target.value = value.toLocaleString();
+        }
+    }, true);
+    
+    // Format budget inputs on initial load
+    document.querySelectorAll('.budget-input').forEach(input => {
+        let value = parseInt(input.value.replace(/,/g, ''), 10) || 0;
+        input.value = value.toLocaleString();
+    });
 });

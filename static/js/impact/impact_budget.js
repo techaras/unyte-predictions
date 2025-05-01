@@ -29,7 +29,7 @@ function updateBudget(input) {
     const forecastId = input.dataset.forecastId;
 
     // 1. Parse the user's input (default 0) and compute the current total budget
-    let newValue = parseInt(input.value, 10) || 0;
+    let newValue = parseInt(input.value.replace(/,/g, ''), 10) || 0;
     const totalBudget = impactData.forecasts.reduce((sum, f) => {
         if (f.budget && f.budget.value != null) {
             return sum + Math.floor(parseFloat(f.budget.value));
@@ -39,7 +39,7 @@ function updateBudget(input) {
 
     // 2. Clamp between 0 and totalBudget, and write it back to the input
     newValue = Math.max(0, Math.min(newValue, totalBudget));
-    input.value = newValue;
+    input.value = newValue.toLocaleString();
 
     // 3. Locate this forecast entry
     const forecast = impactData.forecasts.find(f => f.id === forecastId);
@@ -78,11 +78,11 @@ function updateBudget(input) {
         // hand the entire difference to the first other forecast
         f0.budget.value = f0OldBudget + difference;
 
-        // reflect in the UI
+        // reflect in the UI with comma formatting
         const input0 = document.querySelector(
             `.budget-input[data-forecast-id="${f0.id}"]`
         );
-        if (input0) input0.value = Math.floor(f0.budget.value);
+        if (input0) input0.value = Math.floor(f0.budget.value).toLocaleString();
         
         // Recalculate metrics for both forecasts
         recalculateMetricsForBudgetChange(forecastId, previousValue, newValue);
@@ -112,12 +112,12 @@ function updateBudget(input) {
         const updatedBudget = oldBudget + (difference * proportion);
         f.budget.value = updatedBudget;
 
-        // reflect in the UI
+        // reflect in the UI with comma formatting
         const inputField = document.querySelector(
             `.budget-input[data-forecast-id="${f.id}"]`
         );
         if (inputField) {
-            inputField.value = Math.floor(updatedBudget);
+            inputField.value = Math.floor(updatedBudget).toLocaleString();
         }
         
         // Recalculate metrics for this forecast

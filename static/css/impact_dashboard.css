@@ -144,6 +144,7 @@ body {
     text-align: right;
     width: 70px;
     -moz-appearance: textfield;
+    font-size: inherit; /* Ensure same font size as other cells */
 }
 
 .budget-input::-webkit-outer-spin-button,

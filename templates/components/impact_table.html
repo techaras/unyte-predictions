@@ -47,7 +47,7 @@
                             {% elif metric.name == 'CTR' or metric.name == 'Conversion Rate' %}
                                 {{ '%.2f'|format(metric.current|float) }}
                             {% else %}
-                                {{ metric.current|int }}
+                                {{ metric.current|format_number }}
                             {% endif %}
                         </td>
                         <td rowspan="1" class="metric-simulated" data-metric="{{ metric.name }}">
@@ -56,7 +56,7 @@
                             {% elif metric.name == 'CTR' or metric.name == 'Conversion Rate' %}
                                 {{ '%.2f'|format(metric.simulated|float) }}
                             {% else %}
-                                {{ metric.simulated|int }}
+                                {{ metric.simulated|format_number }}
                             {% endif %}
                         </td>
                         <td rowspan="1" class="impact-value {% if metric.impact > 0 %}impact-positive{% elif metric.impact < 0 %}impact-negative{% else %}impact-neutral{% endif %}" data-metric="{{ metric.name }}">
@@ -66,10 +66,10 @@
                             {% if forecast.budget %}
                                 <div class="budget-input-container">
                                     <span class="budget-currency-symbol">{{ forecast.budget.currency }}</span>
-                                    <input type="number" class="budget-input" 
-                                           value="{{ forecast.budget.value|int }}" 
-                                           data-forecast-id="{{ forecast.id }}"
-                                           onchange="updateBudget(this)">
+                                    <input type="text" class="budget-input" 
+                                        value="{{ forecast.budget.value|format_number }}" 
+                                        data-forecast-id="{{ forecast.id }}"
+                                        onchange="updateBudget(this)">
                                 </div>
                             {% else %}
                                 --

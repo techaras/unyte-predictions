@@ -15,7 +15,8 @@ function updateMetricDisplays(forecastId, updatedMetrics) {
             } else if (metricName === 'CTR' || metricName === 'Conversion Rate') {
                 simulatedElement.textContent = parseFloat(metricData.simulated).toFixed(2);
             } else {
-                simulatedElement.textContent = Math.round(parseFloat(metricData.simulated));
+                // Changed this part:
+                simulatedElement.textContent = parseInt(parseFloat(metricData.simulated)).toLocaleString();
             }
             
             // Update impact value and color
