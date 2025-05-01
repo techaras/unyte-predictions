@@ -61,6 +61,21 @@ body {
     background-color: #f8f9fa;
 }
 
+/* right-align the headers for Current (5th), Simulated (6th) & Impact (7th) */
+.simulator-table th:nth-child(5),
+.simulator-table th:nth-child(6),
+.simulator-table th:nth-child(7) {
+  text-align: right;
+}
+
+/* right-align all their data cells */
+.simulator-table td.metric-current,
+.simulator-table td.metric-simulated,
+.simulator-table td.impact-value {
+  text-align: right;
+}
+
+
 .simulator-table td {
     padding: 15px;
     border-bottom: 1px solid #eee;
