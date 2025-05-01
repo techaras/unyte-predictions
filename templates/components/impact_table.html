@@ -71,6 +71,10 @@
                                         data-forecast-id="{{ forecast.id }}"
                                         onchange="updateBudget(this)">
                                 </div>
+                                <!-- Add slider underneath budget input -->
+                                <div class="budget-slider-container">
+                                    <input type="range" class="budget-slider" min="0" max="100" value="50" step="1">
+                                </div>
                             {% else %}
                                 --
                             {% endif %}
