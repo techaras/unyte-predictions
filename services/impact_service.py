@@ -28,16 +28,16 @@ def process_impact_files(uploaded_files):
             # First, check if this is a forecast CSV format (with metadata at the top)
             is_forecast_csv, metadata, data_df = parse_forecast_csv(file_path)
             
-            # Initialize budget data with defaults
+            # Initialize budget data with defaults - ALWAYS USE £
             budget_value = None
-            budget_currency = '£'  # Changed from '€' to '£'
+            budget_currency = '£'  # ALWAYS USE £
             
             if is_forecast_csv:
                 # Extract budget information from metadata
                 if 'budget' in metadata:
                     budget_value = float(metadata.get('budget', 0))
-                if 'currency' in metadata:
-                    budget_currency = metadata.get('currency', '€')
+                # Always use £ regardless of what's in metadata
+                budget_currency = '£'
                 
                 # Extract information from the parsed metadata and data
                 forecast_id = f"ForecastName {index + 1}"
@@ -77,7 +77,7 @@ def process_impact_files(uploaded_files):
                 # Extract campaign name if available
                 campaign = extract_campaign_name(df, file_info['original_name'])
                 
-                # Extract ALL metrics
+                # Extract ALL metrics - metrics will be normalized in the function
                 metrics = extract_all_metrics(df)
                 
                 # Try to find budget data in the file
@@ -91,13 +91,8 @@ def process_impact_files(uploaded_files):
                         total_cost = df[cost_cols[0]].sum()
                         budget_value = float(total_cost)
                         
-                        # Try to detect currency from column name
-                        # if any(currency in cost_cols[0].lower() for currency in ['eur', '€']):
-                        #     budget_currency = '€'
-                        # elif any(currency in cost_cols[0].lower() for currency in ['usd', '$']):
-                        #     budget_currency = '$'
-                        # elif any(currency in cost_cols[0].lower() for currency in ['gbp', '£']):
-                        #     budget_currency = '£'
+                        # ALWAYS USE £
+                        budget_currency = '£'
                 except Exception as e:
                     logger.warning(f"Could not extract budget information: {str(e)}")
                 
@@ -142,10 +137,10 @@ def process_impact_files(uploaded_files):
                     'end': end_date,
                     'days': forecast_days
                 },
-                # Add budget information to the forecast entry
+                # Add budget information to the forecast entry - ALWAYS USE £
                 'budget': {
                     'value': budget_value,
-                    'currency': budget_currency
+                    'currency': '£'  # ALWAYS USE £
                 }
             }
             
@@ -179,117 +174,32 @@ def process_impact_files(uploaded_files):
     logger.info(f"Processed {len(impact_data['forecasts'])} forecasts")
     return impact_data
 
-def parse_forecast_csv(file_path):
+def normalize_metric_name(name):
     """
-    Parse a CSV file in the forecast export format (with metadata headers).
+    Normalize metric name by removing currency indicators and standardizing format.
     
     Args:
-        file_path: Path to the CSV file
-        
+        name: Original metric name
+    
     Returns:
-        tuple: (is_forecast_csv, metadata_dict, data_dataframe)
+        str: Normalized metric name without currency indicators
     """
-    try:
-        # Read the first 10 lines to check format
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = [line.strip() for line in f.readlines()[:10]]
-        
-        # Check if it follows the metadata format with key-value pairs
-        if len(lines) >= 2 and ',' in lines[0] and len(lines[0].split(',')) == 2:
-            # Count how many metadata rows we have
-            metadata_rows = 0
-            metadata = {}
-            
-            # Extract metadata
-            for line in lines:
-                parts = line.split(',', 1)
-                if len(parts) == 2:
-                    key, value = parts
-                    if value.strip():  # Only store non-empty values
-                        metadata[key.lower().strip()] = value.strip()
-                    metadata_rows += 1
-                else:
-                    # Stop when we hit a line that doesn't look like metadata
-                    break
-            
-            # Check if we have standard metadata keys
-            standard_keys = ['forecast_title', 'platform', 'currency']
-            found_keys = [key for key in standard_keys if key in metadata]
-            
-            if len(found_keys) >= 2:  # If we found at least 2 standard keys, it's our format
-                # Find the data table headers
-                data_start_row = 0
-                for i, line in enumerate(lines):
-                    if 'date' in line.lower() and 'metric_type' in line.lower():
-                        data_start_row = i
-                        break
-                
-                if data_start_row == 0 and metadata_rows > 0:
-                    # If we didn't find the data headers but had metadata, start after metadata
-                    data_start_row = metadata_rows
-                
-                # Read the data portion
-                try:
-                    data_df = pd.read_csv(file_path, skiprows=data_start_row)
-                    return True, metadata, data_df
-                except Exception as e:
-                    logger.warning(f"Failed to read data portion of forecast CSV: {str(e)}")
-        
-        # If we got here, it's not a forecast CSV or we couldn't parse it
-        return False, {}, None
+    # Remove currency indicators in parentheses
+    normalized = name
+    for currency in ['(EUR)', '(USD)', '(GBP)', '(€)', '($)', '(£)', '(AUD)', '(CAD)']:
+        normalized = normalized.replace(currency, '')
     
-    except Exception as e:
-        logger.warning(f"Failed to parse as forecast CSV: {str(e)}")
-        return False, {}, None
-
-def extract_campaign_name_from_metadata(metadata, filename):
-    """
-    Extract campaign name from metadata or fallback to filename.
+    # Remove any extra whitespace created by removal
+    normalized = normalized.strip()
     
-    Args:
-        metadata: Dictionary of metadata from forecast CSV
-        filename: Original filename
-        
-    Returns:
-        str: Campaign name
-    """
-    # Try to extract from title first
-    if 'forecast_title' in metadata:
-        title = metadata['forecast_title']
-        # Check if title contains campaign indicators
-        campaign_indicators = ['campaign', 'Campaign', 'Madrid', 'madrid', 'Performance']
-        for indicator in campaign_indicators:
-            if indicator in title:
-                parts = title.split(' - ')
-                # Return the part that contains the campaign indicator
-                for part in parts:
-                    if any(indicator in part for indicator in campaign_indicators):
-                        return part.strip()
-                # Or just return the whole title
-                return title
+    # If the metric was just a currency indicator, give it a meaningful name
+    if not normalized:
+        for currency in ['EUR', 'USD', 'GBP', '€', '$', '£', 'AUD', 'CAD']:
+            if currency in name:
+                normalized = 'Amount Spent'
+                break
     
-    # Try to extract from filename if no campaign in title
-    name = filename.rsplit('.', 1)[0]
-    for prefix in ['report_', 'export_', 'data_', 'campaign_']:
-        if name.lower().startswith(prefix):
-            name = name[len(prefix):]
-    
-    # Check if name contains specific campaign terminology
-    if any(term in name for term in ['Madrid', 'madrid', 'Performance']):
-        return 'Madrid Performance'
-    
-    # If name is too generic, check platform and make a sensible default
-    if 'platform' in metadata:
-        platform = metadata['platform']
-        if platform.lower() in ['meta', 'facebook']:
-            return 'Meta Awareness'
-        elif platform.lower() in ['google', 'google ads']:
-            return 'Google Performance'
-        elif platform.lower() in ['amazon']:
-            return 'Amazon Sponsored'
-    
-    # Default if nothing else works
-    return 'All Campaigns'
+    return normalized
 
 def extract_all_metrics_from_forecast_data(df):
     """
@@ -323,8 +233,8 @@ def extract_all_metrics_from_forecast_data(df):
     # Third pass: Process metrics based on their type
     for col in raw_totals.keys():
         try:
-            # Use original column name instead of formatting it
-            display_name = col
+            # Normalize the column name to remove currency indicators
+            display_name = normalize_metric_name(col)
             metric_lower = col.lower()
             
             value = raw_totals[col]
@@ -401,8 +311,8 @@ def extract_all_metrics(df):
     # Third pass: Process each metric with proper logic based on metric type
     for col in potential_metric_columns:
         try:
-            # Use original column name instead of formatting it
-            metric_name = col
+            # Normalize the metric name to remove currency indicators
+            metric_name = normalize_metric_name(col)
             metric_lower = col.lower()
             
             # Skip if raw total is NaN or too small
@@ -473,8 +383,11 @@ def format_metric_name(column_name):
     Returns:
         str: Formatted metric name
     """
-    # Remove common prefixes/suffixes
-    name = column_name.replace('_', ' ').strip()
+    # Normalize first to remove currency indicators
+    name = normalize_metric_name(column_name)
+    
+    # Remove underscores and extra spaces
+    name = name.replace('_', ' ').strip()
     
     # Handle special cases
     name_lower = name.lower()
@@ -637,3 +550,117 @@ def extract_campaign_name(df, filename):
         return 'All Campaigns'
     
     return name
+
+# Add the missing functions from the original implementation
+
+def parse_forecast_csv(file_path):
+    """
+    Parse a CSV file in the forecast export format (with metadata headers).
+    
+    Args:
+        file_path: Path to the CSV file
+        
+    Returns:
+        tuple: (is_forecast_csv, metadata_dict, data_dataframe)
+    """
+    try:
+        # Read the first 10 lines to check format
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = [line.strip() for line in f.readlines()[:10]]
+        
+        # Check if it follows the metadata format with key-value pairs
+        if len(lines) >= 2 and ',' in lines[0] and len(lines[0].split(',')) == 2:
+            # Count how many metadata rows we have
+            metadata_rows = 0
+            metadata = {}
+            
+            # Extract metadata
+            for line in lines:
+                parts = line.split(',', 1)
+                if len(parts) == 2:
+                    key, value = parts
+                    if value.strip():  # Only store non-empty values
+                        metadata[key.lower().strip()] = value.strip()
+                    metadata_rows += 1
+                else:
+                    # Stop when we hit a line that doesn't look like metadata
+                    break
+            
+            # Check if we have standard metadata keys
+            standard_keys = ['forecast_title', 'platform', 'currency']
+            found_keys = [key for key in standard_keys if key in metadata]
+            
+            if len(found_keys) >= 2:  # If we found at least 2 standard keys, it's our format
+                # Find the data table headers
+                data_start_row = 0
+                for i, line in enumerate(lines):
+                    if 'date' in line.lower() and 'metric_type' in line.lower():
+                        data_start_row = i
+                        break
+                
+                if data_start_row == 0 and metadata_rows > 0:
+                    # If we didn't find the data headers but had metadata, start after metadata
+                    data_start_row = metadata_rows
+                
+                # Read the data portion
+                try:
+                    data_df = pd.read_csv(file_path, skiprows=data_start_row)
+                    return True, metadata, data_df
+                except Exception as e:
+                    logger.warning(f"Failed to read data portion of forecast CSV: {str(e)}")
+        
+        # If we got here, it's not a forecast CSV or we couldn't parse it
+        return False, {}, None
+    
+    except Exception as e:
+        logger.warning(f"Failed to parse as forecast CSV: {str(e)}")
+        return False, {}, None
+
+def extract_campaign_name_from_metadata(metadata, filename):
+    """
+    Extract campaign name from metadata or fallback to filename.
+    
+    Args:
+        metadata: Dictionary of metadata from forecast CSV
+        filename: Original filename
+        
+    Returns:
+        str: Campaign name
+    """
+    # Try to extract from title first
+    if 'forecast_title' in metadata:
+        title = metadata['forecast_title']
+        # Check if title contains campaign indicators
+        campaign_indicators = ['campaign', 'Campaign', 'Madrid', 'madrid', 'Performance']
+        for indicator in campaign_indicators:
+            if indicator in title:
+                parts = title.split(' - ')
+                # Return the part that contains the campaign indicator
+                for part in parts:
+                    if any(indicator in part for indicator in campaign_indicators):
+                        return part.strip()
+                # Or just return the whole title
+                return title
+    
+    # Try to extract from filename if no campaign in title
+    name = filename.rsplit('.', 1)[0]
+    for prefix in ['report_', 'export_', 'data_', 'campaign_']:
+        if name.lower().startswith(prefix):
+            name = name[len(prefix):]
+    
+    # Check if name contains specific campaign terminology
+    if any(term in name for term in ['Madrid', 'madrid', 'Performance']):
+        return 'Madrid Performance'
+    
+    # If name is too generic, check platform and make a sensible default
+    if 'platform' in metadata:
+        platform = metadata['platform']
+        if platform.lower() in ['meta', 'facebook']:
+            return 'Meta Awareness'
+        elif platform.lower() in ['google', 'google ads']:
+            return 'Google Performance'
+        elif platform.lower() in ['amazon']:
+            return 'Amazon Sponsored'
+    
+    # Default if nothing else works
+    return 'All Campaigns'
