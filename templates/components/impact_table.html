@@ -83,7 +83,7 @@
                             {% elif metric.name == 'CTR' or metric.name == 'Conversion Rate' %}
                                 {{ '%.2f'|format(metric.current|float) }}
                             {% else %}
-                                {{ metric.current|int }}
+                                {{ metric.current|format_number }}
                             {% endif %}
                         </td>
                         <td class="metric-simulated" data-metric="{{ metric.name }}">
@@ -92,7 +92,7 @@
                             {% elif metric.name == 'CTR' or metric.name == 'Conversion Rate' %}
                                 {{ '%.2f'|format(metric.simulated|float) }}
                             {% else %}
-                                {{ metric.simulated|int }}
+                                {{ metric.simulated|format_number }}
                             {% endif %}
                         </td>
                         <td class="impact-value {% if metric.impact > 0 %}impact-positive{% elif metric.impact < 0 %}impact-negative{% else %}impact-neutral{% endif %}" data-metric="{{ metric.name }}">
