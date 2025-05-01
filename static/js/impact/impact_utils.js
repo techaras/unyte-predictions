@@ -1,6 +1,6 @@
 // Format currency with proper formatting
 function formatCurrency(value) {
-    return '$' + parseFloat(value).toLocaleString('en-US', {
+    return '£' + parseFloat(value).toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });

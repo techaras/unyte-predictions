@@ -30,7 +30,7 @@ def process_impact_files(uploaded_files):
             
             # Initialize budget data with defaults
             budget_value = None
-            budget_currency = '€'  # Default currency
+            budget_currency = '£'  # Changed from '€' to '£'
             
             if is_forecast_csv:
                 # Extract budget information from metadata
@@ -92,12 +92,12 @@ def process_impact_files(uploaded_files):
                         budget_value = float(total_cost)
                         
                         # Try to detect currency from column name
-                        if any(currency in cost_cols[0].lower() for currency in ['eur', '€']):
-                            budget_currency = '€'
-                        elif any(currency in cost_cols[0].lower() for currency in ['usd', '$']):
-                            budget_currency = '$'
-                        elif any(currency in cost_cols[0].lower() for currency in ['gbp', '£']):
-                            budget_currency = '£'
+                        # if any(currency in cost_cols[0].lower() for currency in ['eur', '€']):
+                        #     budget_currency = '€'
+                        # elif any(currency in cost_cols[0].lower() for currency in ['usd', '$']):
+                        #     budget_currency = '$'
+                        # elif any(currency in cost_cols[0].lower() for currency in ['gbp', '£']):
+                        #     budget_currency = '£'
                 except Exception as e:
                     logger.warning(f"Could not extract budget information: {str(e)}")
                 

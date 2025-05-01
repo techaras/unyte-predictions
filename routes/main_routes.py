@@ -148,7 +148,7 @@ def process():
     
     # Get currency from budget_data in session
     budget_data = session.get('budget_data', {})
-    currency = budget_data.get('currency', '£')
+    currency = '£'  # Force currency to be '£'
     
     # Get campaign end date if provided
     campaign_end_date = request.form.get('campaign_end_date')

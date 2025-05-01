@@ -298,18 +298,18 @@ def calculate_budget_data(df, file_format):
             logger.warning(f"WARNING: Using '{primary_spend_column}' for budget calculation, which appears to be conversion value, not ad spend!")
     
     # Find currency symbol if available
-    for col in spend_columns:
-        # Check if column name contains currency indicators
-        col_lower = col.lower()
-        if 'eur' in col_lower or '€' in col_lower:
-            budget_data['currency'] = '€'
-            break
-        elif 'usd' in col_lower or '$' in col_lower:
-            budget_data['currency'] = '$'
-            break
-        elif 'gbp' in col_lower or '£' in col_lower:
-            budget_data['currency'] = '£'
-            break
+    # for col in spend_columns:
+    #     # Check if column name contains currency indicators
+    #     col_lower = col.lower()
+    #     if 'eur' in col_lower or '€' in col_lower:
+    #         budget_data['currency'] = '€'
+    #         break
+    #     elif 'usd' in col_lower or '$' in col_lower:
+    #         budget_data['currency'] = '$'
+    #         break
+    #     elif 'gbp' in col_lower or '£' in col_lower:
+    #         budget_data['currency'] = '£'
+    #         break
     
     # Calculate daily average spend
     if spend_columns:

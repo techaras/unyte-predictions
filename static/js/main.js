@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Get the daily average from the server-provided data or default to 0
         const budgetData = window.budgetData || { dailyAverage: 0, currency: '£', isValid: false };
         const dailyAverage = parseFloat(budgetData.dailyAverage) || 0;
-        const currency = budgetData.currency || '£';
+        const currency = '£';  // Always use '£'
         const isValidBudget = budgetData.isValid === true;
         
         // Calculate total budget
@@ -301,7 +301,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const dailyBudgetText = document.getElementById('daily-budget-text');
             const budgetCurrency = document.getElementById('budget-currency');
-            const currency = budgetCurrency ? budgetCurrency.textContent : '£';
+            const currency = '£';  // Always use '£'
             
             if (dailyBudgetText) {
                 dailyBudgetText.textContent = 
